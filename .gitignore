@@ -39,6 +39,9 @@ yarn-error.log*
 # profile data (JSON files in data/, keep .gitkeep)
 /data/*.json
 
+# fake emails
+/email
+
 # vercel
 .vercel
 
