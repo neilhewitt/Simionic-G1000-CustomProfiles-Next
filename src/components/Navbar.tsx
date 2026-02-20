@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
 
 export default function Navbar() {
@@ -62,12 +62,12 @@ export default function Navbar() {
                 </div>
               ) : (
                 <li className="nav-item">
-                  <button
-                    onClick={() => signIn("azure-ad")}
-                    className="nav-link pointer text-white bg-transparent border-0 cursor-pointer"
+                  <Link
+                    href="/auth/signin"
+                    className="nav-link pointer text-white"
                   >
                     Log<span className="d-none d-lg-inline">&nbsp;</span>in
-                  </button>
+                  </Link>
                 </li>
               )}
             </ul>

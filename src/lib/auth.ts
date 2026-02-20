@@ -1,26 +1,41 @@
 import { NextAuthOptions } from "next-auth";
-import AzureADProvider from "next-auth/providers/azure-ad";
-import { getOwnerId } from "./owner-id";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { findUserByEmail } from "./user-store";
+import { verifyPassword } from "./password";
 
 export const authOptions: NextAuthOptions = {
+  session: {
+    strategy: "jwt",
+  },
   providers: [
-    AzureADProvider({
-      clientId: process.env.AZURE_AD_CLIENT_ID!,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      tenantId: "consumers",
-      authorization: {
-        params: {
-          scope: "openid email profile",
-        },
+    CredentialsProvider({
+      name: "credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
-      checks: ["pkce", "state"],
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const user = await findUserByEmail(credentials.email);
+        if (!user) return null;
+
+        const valid = await verifyPassword(user.passwordHash, credentials.password);
+        if (!valid) return null;
+
+        return {
+          id: user.ownerId,
+          email: user.email,
+          name: user.name,
+        };
+      },
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
-      if (account && token.email) {
-        // Compute ownerId locally using the same PBKDF2 algorithm as the C# backend
-        token.ownerId = getOwnerId(token.email);
+    async jwt({ token, user }) {
+      if (user) {
+        // user.id is the ownerId returned from authorize()
+        token.ownerId = user.id;
       }
       return token;
     },

@@ -52,3 +52,21 @@ export async function upsertProfile(id: string, profile: Profile): Promise<void>
     { upsert: true }
   );
 }
+
+/**
+ * Updates the Owner.Id and Owner.Name on all profiles matching the old owner ID.
+ * Used during Microsoft account → local account conversion.
+ * Returns the number of modified profiles.
+ */
+export async function updateProfileOwner(
+  oldOwnerId: string,
+  newOwnerId: string,
+  newOwnerName: string
+): Promise<number> {
+  const db = await getDb();
+  const result = await db.collection(COLLECTION).updateMany(
+    { "Owner.Id": oldOwnerId },
+    { $set: { "Owner.Id": newOwnerId, "Owner.Name": newOwnerName } }
+  );
+  return result.modifiedCount;
+}

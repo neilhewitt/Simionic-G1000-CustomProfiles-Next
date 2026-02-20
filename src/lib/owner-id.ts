@@ -1,5 +1,10 @@
 import { pbkdf2Sync } from "crypto";
 
+/**
+ * @deprecated Legacy owner ID derivation — retained only for the Microsoft account
+ * conversion flow. Do not use for new accounts; new accounts use random UUIDs.
+ */
+
 // Must match the C# Helper.cs implementation exactly:
 // Salt: base64-decoded "AWBH+yXC3ba1vxMj3MrnuXKHikL2RDSX"
 // Iterations: 100,000

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSession, signIn } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Profile } from "@/types";
@@ -70,12 +70,8 @@ export default function ImportPage() {
               {!isLoggedIn ? (
                 <>
                   <p className="lead fw-normal text-white-50 mb-4">
-                    To import a profile, you must be logged in with a Microsoft Account. You can log in{" "}
-                    <a href="#" onClick={(e) => { e.preventDefault(); signIn("azure-ad"); }}>here</a>.
-                  </p>
-                  <p className="fw-normal text-white-50 mb-4">
-                    You will be asked to give this site permissions to see your name and email address the first time you log in. You can find out about how we use your information{" "}
-                    <Link href="/privacy">here</Link>.
+                    To import a profile, you must be logged in. You can log in{" "}
+                    <Link href="/auth/signin">here</Link>.
                   </p>
                 </>
               ) : (
