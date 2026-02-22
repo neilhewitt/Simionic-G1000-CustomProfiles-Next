@@ -14,21 +14,13 @@ The application is a Next.js web app that lets users browse, create, edit, impor
 
 ## 1. Security Issues
 
-### 1.1 Hardcoded Credentials in Version-Controlled Script — **CRITICAL**
+### 1.1 ~~Hardcoded Credentials in Version-Controlled Script~~ — ✅ FIXED
 
-**File:** `scripts/seed-user.js`
+**File:** `scripts/seed-user.js` (deleted)
 
-```js
-const hash = await argon2.hash("P0temkin", { type: argon2.argon2id });
-// ...
-{ email: "neil.hewitt@gmail.com", name: "Neil Hewitt", ... }
-```
+This issue — a real email address and plaintext password hardcoded in `scripts/seed-user.js` — has been resolved. The file has been removed and the credentials have been purged from git history. If the password that was exposed has not already been rotated on all systems where it was used, it should be.
 
-A real email address and a hardcoded plaintext password are committed to the repository. Even if this is only intended for local development, committing credentials to source control is a well-documented, high-severity practice that violates basic secrets hygiene. If the repository is or ever becomes public, or if any historical version leaks, the credentials are permanently exposed.
-
-**Fix:** Remove the hardcoded values. Use environment variables or a CLI prompt (`readline`). Any secrets that have already been committed to git history should be treated as compromised and rotated.
-
-> **Reference:** OWASP A07:2021 – Identification and Authentication Failures; CWE-798 (Use of Hard-coded Credentials); GitHub's own guidance on secret scanning.
+> **Reference:** OWASP A07:2021 – Identification and Authentication Failures; CWE-798 (Use of Hard-coded Credentials).
 
 ---
 
@@ -515,7 +507,7 @@ The error message from the network fetch (`err.message`) is shown directly to th
 | Security headers | Missing CSP | Add strict CSP; add SRI to CDN resources |
 | Database operations | Separate operations, no transactions | MongoDB transactions for multi-step flows |
 | Architecture | Logic in API routes | Service layer between routes and data access |
-| Seed script | Hardcoded credentials | Environment variables or prompts |
+| ~~Seed script~~ | ~~Hardcoded credentials~~ | ✅ Fixed — file deleted, history purged |
 | Numeric inputs | `type="text"` | `type="number"` for numeric fields |
 | Field naming | PascalCase (legacy C#) | camelCase (JavaScript convention) |
 | Delete functionality | Not implemented | Add DELETE endpoint and UI |
