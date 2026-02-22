@@ -22,7 +22,7 @@ export default function EditProfileContent() {
   const [saved, setSaved] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
-  const ownerId = (session as any)?.ownerId ?? null;
+  const ownerId = session?.ownerId ?? null;
   const isLoggedIn = !!session?.user;
 
   useEffect(() => {
