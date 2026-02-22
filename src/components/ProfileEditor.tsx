@@ -34,7 +34,7 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
     for (const key of gaugeKeys) {
       const gauge = profile[key] as Gauge;
       if (gauge?.Name) {
-        (updates as any)[key] = { ...gauge, Name: gauge.Name.replace(oldTemp, newTemp) };
+        Object.assign(updates, { [key]: { ...gauge, Name: gauge.Name.replace(oldTemp, newTemp) } });
       }
     }
     update(updates);
