@@ -4,12 +4,17 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Profile } from "@/types";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    if (!UUID_REGEX.test(id)) {
+      return NextResponse.json({ error: "Invalid profile ID" }, { status: 400 });
+    }
     const profile = await getProfile(id);
     if (!profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
@@ -32,11 +37,32 @@ export async function POST(
     }
 
     const { id } = await params;
+    if (!UUID_REGEX.test(id)) {
+      return NextResponse.json({ error: "Invalid profile ID" }, { status: 400 });
+    }
+
     const profile: Profile = await request.json();
 
-    // Inject owner info from session
+    // Server-side input validation
+    if (typeof profile.Name !== "string" || !profile.Name.trim()) {
+      return NextResponse.json({ error: "Profile name is required." }, { status: 400 });
+    }
+    if (profile.Name.length > 200) {
+      return NextResponse.json({ error: "Profile name must be 200 characters or fewer." }, { status: 400 });
+    }
+    if (profile.Notes != null && profile.Notes.length > 2000) {
+      return NextResponse.json({ error: "Notes must be 2000 characters or fewer." }, { status: 400 });
+    }
+
+    // Verify the caller owns the existing profile (if it already exists)
+    const existing = await getProfile(id);
+    if (existing && existing.Owner?.Id !== session.ownerId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Inject owner info from session (always trust the server, not the client)
     profile.Owner = {
-      Id: (session as any).ownerId ?? null,
+      Id: session.ownerId ?? null,
       Name: session.user.name ?? null,
     };
 

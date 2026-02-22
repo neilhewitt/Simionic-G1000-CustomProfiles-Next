@@ -41,7 +41,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token.ownerId) {
-        (session as any).ownerId = token.ownerId;
+        session.ownerId = token.ownerId;
       }
       return session;
     },

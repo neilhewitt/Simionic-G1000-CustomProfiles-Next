@@ -21,7 +21,7 @@ export default function ProfileListContent() {
   const [onlyShowDrafts, setOnlyShowDrafts] = useState(false);
 
   const isLoggedIn = !!session?.user;
-  const ownerId = (session as any)?.ownerId ?? null;
+  const ownerId = session?.ownerId ?? null;
 
   useEffect(() => {
     fetchProfiles();

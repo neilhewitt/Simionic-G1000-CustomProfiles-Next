@@ -15,7 +15,7 @@ export default function ImportPage() {
   const [fileName, setFileName] = useState("");
 
   const isLoggedIn = !!session?.user;
-  const ownerId = (session as any)?.ownerId ?? null;
+  const ownerId = session?.ownerId ?? null;
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
