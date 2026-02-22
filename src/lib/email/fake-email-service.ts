@@ -1,6 +1,7 @@
 import { EmailService } from "./types";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import sanitize from "sanitize-filename";
 
 export class FakeEmailService implements EmailService {
   async sendEmail(to: string, subject: string, htmlBody: string): Promise<void> {
@@ -13,7 +14,8 @@ export class FakeEmailService implements EmailService {
     try {
       const dir = path.join(process.cwd(), "email");
       await mkdir(dir, { recursive: true });
-      const filename = `${Date.now()}-${to.replace(/[^a-zA-Z0-9]/g, "_")}.txt`;
+      const safeTo = sanitize(to) || "recipient";
+      const filename = `${Date.now()}-${safeTo.replace(/[^a-zA-Z0-9]/g, "_")}.txt`;
       await writeFile(path.join(dir, filename), text, "utf-8");
     } catch (err) {
       console.error("Failed to write fake email to disk:", err);
