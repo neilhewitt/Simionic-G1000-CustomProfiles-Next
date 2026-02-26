@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getConversionToken, markConversionTokenUsed } from "@/lib/token-store";
-import { findUserByEmail, createUser } from "@/lib/user-store";
+import { findConversionToken, markConversionTokenUsed } from "@/lib/token-store";
+import { findUserByEmail, createUserIdempotent } from "@/lib/user-store";
 import { hashPassword } from "@/lib/password";
 import { getOwnerId } from "@/lib/owner-id";
 import { updateProfileOwner } from "@/lib/data-store";
@@ -30,8 +30,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name is required." }, { status: 400 });
     }
 
-    // Validate the conversion token
-    const conversionToken = await getConversionToken(token);
+    // Look up the conversion token regardless of its `used` status so we can
+    // handle retries on already-completed conversions.
+    const conversionToken = await findConversionToken(token);
     if (!conversionToken) {
       return NextResponse.json(
         { error: "Invalid or expired conversion link." },
@@ -47,27 +48,79 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if a local account already exists for this email
-    const existing = await findUserByEmail(email);
-    if (existing) {
+    // --- Idempotent retry handling ---
+    // If the token was already used in a previous (successful) request, check
+    // whether the user account exists and return an appropriate response.
+    if (conversionToken.used) {
+      const existingUser = await findUserByEmail(email);
+      if (existingUser) {
+        console.info(
+          `Conversion retry: token already used, user exists (email=${email})`
+        );
+        return NextResponse.json({
+          message: "Account already converted.",
+          profilesMigrated: 0,
+        });
+      }
+      // Token is marked used but no user exists — this should be extremely rare
+      // given the ordering (token is marked used last). Log for investigation.
+      console.error(
+        `Conversion inconsistency: token used but no user found (email=${email}, token=${token.slice(0, 8)}…)`
+      );
       return NextResponse.json(
-        { error: "An account with this email already exists." },
+        { error: "Conversion is in an inconsistent state. Please contact support." },
         { status: 409 }
       );
     }
 
+    // --- Fresh or partially-completed conversion (token not yet marked used) ---
+
     // Compute the old (legacy) owner ID from the email using PBKDF2-SHA1
     const oldOwnerId = getOwnerId(email);
 
-    // Create the new local account (generates a new UUID-based owner ID)
+    // 1. Create the new local account idempotently — handles duplicate-key
+    //    errors from retries or races by returning the existing user.
     const passwordHash = await hashPassword(password);
-    const user = await createUser(email, name.trim(), passwordHash);
+    const { user, created } = await createUserIdempotent(
+      email,
+      name.trim(),
+      passwordHash
+    );
 
-    // Migrate all profiles from the old owner ID to the new one
-    const migratedCount = await updateProfileOwner(oldOwnerId, user.ownerId, user.name);
+    if (created) {
+      console.info(
+        `Conversion: created user (email=${email}, ownerId=${user.ownerId})`
+      );
+    } else {
+      console.info(
+        `Conversion: user already exists, proceeding (email=${email}, ownerId=${user.ownerId})`
+      );
+    }
 
-    // Mark the conversion token as used
-    await markConversionTokenUsed(token);
+    // 2. Migrate profiles — updateMany is naturally idempotent; re-running it
+    //    when profiles have already been migrated results in modifiedCount === 0.
+    const migratedCount = await updateProfileOwner(
+      oldOwnerId,
+      user.ownerId,
+      user.name
+    );
+
+    console.info(
+      `Conversion: migrated ${migratedCount} profile(s) (email=${email}, oldOwner=${oldOwnerId}, newOwner=${user.ownerId})`
+    );
+
+    // 3. Mark the token used LAST — only after user creation and profile
+    //    migration have succeeded. The conditional update is safe for retries:
+    //    if modifiedCount is 0 the token was already used (e.g., parallel request).
+    const tokenMarked = await markConversionTokenUsed(token);
+
+    if (tokenMarked) {
+      console.info(`Conversion: token marked used (email=${email})`);
+    } else {
+      console.info(
+        `Conversion: token was already marked used (email=${email})`
+      );
+    }
 
     return NextResponse.json({
       message: "Account converted successfully.",
