@@ -4,9 +4,21 @@ import { findUserByEmail, createUserIdempotent } from "@/lib/user-store";
 import { hashPassword } from "@/lib/password";
 import { getOwnerId } from "@/lib/owner-id";
 import { updateProfileOwner } from "@/lib/data-store";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+
+const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = rateLimit(ip + ":convert-complete", 10, FIFTEEN_MINUTES);
+    if (!rl.success) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429, headers: { "Retry-After": "900" } }
+      );
+    }
+
     let body: { token?: string; email?: string; name?: string; password?: string };
     try {
       body = await request.json() as typeof body;

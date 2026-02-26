@@ -8,7 +8,7 @@ import { Suspense } from "react";
 function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
-  const [code, setCode] = useState("");
+  const [token] = useState(searchParams.get("token") ?? "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +35,7 @@ function ResetPasswordContent() {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code, password }),
+        body: JSON.stringify({ email, token, password }),
       });
 
       if (!res.ok) {
@@ -82,12 +82,18 @@ function ResetPasswordContent() {
             <div className="card bg-secondary text-white p-4">
               <h3 className="mb-3 text-center">Reset password</h3>
               <p className="text-light mb-3">
-                Enter the 6-digit code sent to your email and choose a new password.
+                Choose a new password for your account.
               </p>
 
               {error && (
                 <div className="alert alert-danger" role="alert">
                   {error}
+                </div>
+              )}
+
+              {!token && (
+                <div className="alert alert-warning" role="alert">
+                  Invalid or missing reset link. Please request a new password reset.
                 </div>
               )}
 
@@ -101,21 +107,6 @@ function ResetPasswordContent() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="code" className="form-label">Reset code</label>
-                  <input
-                    id="code"
-                    type="text"
-                    className="form-control"
-                    placeholder="6-digit code"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    required
-                    maxLength={6}
-                    pattern="[0-9]{6}"
-                    autoFocus
                   />
                 </div>
                 <div className="mb-3">
@@ -145,7 +136,7 @@ function ResetPasswordContent() {
                 <button
                   type="submit"
                   className="btn btn-primary btn-lg w-100"
-                  disabled={loading}
+                  disabled={loading || !token}
                 >
                   {loading ? "Resetting..." : "Reset password"}
                 </button>

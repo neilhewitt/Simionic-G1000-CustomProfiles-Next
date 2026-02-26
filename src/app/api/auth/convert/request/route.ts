@@ -2,9 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { findUserByEmail } from "@/lib/user-store";
 import { createConversionToken } from "@/lib/token-store";
 import { getEmailService } from "@/lib/email";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+
+const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = rateLimit(ip + ":convert-request", 5, FIFTEEN_MINUTES);
+    if (!rl.success) {
+      // Zero-disclosure: same response shape regardless of rate limit
+      return NextResponse.json({
+        message: "If eligible, a conversion email has been sent.",
+      });
+    }
+
     let body: { email?: unknown };
     try {
       body = await request.json() as typeof body;

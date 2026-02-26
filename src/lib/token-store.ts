@@ -1,5 +1,5 @@
 import { getDb } from "./mongodb";
-import { randomUUID, randomInt, createHash } from "crypto";
+import { randomUUID, randomBytes, createHash } from "crypto";
 
 const RESET_COLLECTION = "password_reset_codes";
 const CONVERSION_COLLECTION = "conversion_tokens";
@@ -31,24 +31,24 @@ async function ensureResetIndexes() {
 }
 
 /**
- * Creates a 6-digit reset code for the given email.
- * Returns the plaintext code (to include in the email).
- * The code is stored as a SHA-256 hash.
+ * Creates a secure random reset token for the given email.
+ * Returns the plaintext token (to include in the reset link).
+ * Only the SHA-256 hash of the token is stored in the database.
  */
 export async function createResetCode(email: string): Promise<string> {
   await ensureResetIndexes();
   const db = await getDb();
 
-  const code = String(randomInt(100000, 999999));
+  const token = randomBytes(32).toString("hex");
   const record: ResetCode = {
     email: email.toLowerCase().trim(),
-    codeHash: sha256(code),
+    codeHash: sha256(token),
     expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
     used: false,
   };
 
   await db.collection(RESET_COLLECTION).insertOne(record);
-  return code;
+  return token;
 }
 
 /**

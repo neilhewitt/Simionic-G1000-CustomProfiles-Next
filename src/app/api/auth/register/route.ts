@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findUserByEmail, createUser } from "@/lib/user-store";
 import { hashPassword } from "@/lib/password";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+
+const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = rateLimit(ip + ":register", 5, FIFTEEN_MINUTES);
+    if (!rl.success) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429, headers: { "Retry-After": "900" } }
+      );
+    }
+
     let body: { name?: unknown; email?: unknown; password?: unknown };
     try {
       body = await request.json() as typeof body;
