@@ -59,13 +59,12 @@ export async function POST(request: NextRequest) {
         );
         return NextResponse.json({
           message: "Account already converted.",
-          profilesMigrated: 0,
         });
       }
       // Token is marked used but no user exists — this should be extremely rare
       // given the ordering (token is marked used last). Log for investigation.
       console.error(
-        `Conversion inconsistency: token used but no user found (email=${email}, token=${token.slice(0, 8)}…)`
+        `Conversion inconsistency: token used but no user found (email=${email})`
       );
       return NextResponse.json(
         { error: "Conversion is in an inconsistent state. Please contact support." },
