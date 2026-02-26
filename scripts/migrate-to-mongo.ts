@@ -31,7 +31,7 @@ async function main() {
   console.log(`Found ${files.length} JSON files in ${DATA_DIR}`);
 
   let imported = 0;
-  let skipped = 0;
+  const skipped = 0;
   let errors = 0;
 
   for (const file of files) {

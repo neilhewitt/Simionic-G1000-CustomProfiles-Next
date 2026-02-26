@@ -63,6 +63,17 @@ export default function ProfilePageContent() {
     }
   }, [id, isNew, isLoggedIn, ownerId, session?.user?.name, searchParams]);
 
+  // Warn the user if they try to navigate away with unsaved changes
+  useEffect(() => {
+    if (!editing || profile === null) return;
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [editing, profile]);
+
   // Save (or first-time save confirmation for new profiles)
   const save = useCallback(async () => {
     if (!profile || saving) return;
@@ -110,11 +121,15 @@ export default function ProfilePageContent() {
     }
     // Re-fetch to discard unsaved changes
     fetch(`/api/profiles/${id}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to reload profile: ${res.status} ${res.statusText}`);
+        return res.json();
+      })
       .then((data) => {
         setProfile(data);
         setEditing(false);
-      });
+      })
+      .catch((err) => setError(err.message));
   }
 
   function getSaveButtonText() {

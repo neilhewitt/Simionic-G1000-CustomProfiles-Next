@@ -5,7 +5,14 @@ import { getEmailService } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json();
+    let body: { email?: unknown };
+    try {
+      body = await request.json() as typeof body;
+    } catch {
+      // Zero-disclosure: treat malformed request the same as missing email
+      return NextResponse.json({ message: "If an account exists, a reset code has been sent." });
+    }
+    const { email } = body;
 
     if (!email || typeof email !== "string") {
       // Always return 200 for zero-disclosure

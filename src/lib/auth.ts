@@ -3,6 +3,10 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { findUserByEmail } from "./user-store";
 import { verifyPassword } from "./password";
 
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error("NEXTAUTH_SECRET environment variable is not set");
+}
+
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",

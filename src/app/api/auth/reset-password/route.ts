@@ -5,7 +5,13 @@ import { hashPassword } from "@/lib/password";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, code, password } = await request.json();
+    let body: { email?: string; code?: string; password?: string };
+    try {
+      body = await request.json() as typeof body;
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
+    const { email, code, password } = body;
 
     if (!email || !code || !password) {
       return NextResponse.json({ error: "All fields are required." }, { status: 400 });

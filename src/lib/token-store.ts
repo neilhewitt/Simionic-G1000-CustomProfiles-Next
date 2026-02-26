@@ -78,7 +78,7 @@ export async function verifyResetCode(
 
 export interface ConversionToken {
   email: string;
-  token: string;
+  tokenHash: string;
   expiresAt: Date;
   used: boolean;
 }
@@ -90,13 +90,14 @@ async function ensureConversionIndexes() {
   const db = await getDb();
   const col = db.collection(CONVERSION_COLLECTION);
   await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-  await col.createIndex({ token: 1 });
+  await col.createIndex({ tokenHash: 1 });
   conversionIndexesEnsured = true;
 }
 
 /**
  * Creates a conversion token for the given email.
- * Returns the token string (to include in the conversion link).
+ * Returns the raw token string (to include in the conversion link).
+ * Only the SHA-256 hash of the token is stored in the database.
  */
 export async function createConversionToken(
   email: string
@@ -107,7 +108,7 @@ export async function createConversionToken(
   const token = randomUUID();
   const record: ConversionToken = {
     email: email.toLowerCase().trim(),
-    token,
+    tokenHash: sha256(token),
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     used: false,
   };
@@ -117,7 +118,8 @@ export async function createConversionToken(
 }
 
 /**
- * Returns a valid (not expired, not used) conversion token, or null.
+ * Returns a valid (not expired, not used) conversion token record, or null.
+ * Accepts the raw token; looks up by its SHA-256 hash.
  */
 export async function getConversionToken(
   token: string
@@ -126,7 +128,7 @@ export async function getConversionToken(
   const db = await getDb();
 
   const doc = await db.collection(CONVERSION_COLLECTION).findOne({
-    token,
+    tokenHash: sha256(token),
     expiresAt: { $gt: new Date() },
     used: false,
   });
@@ -136,6 +138,7 @@ export async function getConversionToken(
 
 /**
  * Marks a conversion token as used.
+ * Accepts the raw token; looks up by its SHA-256 hash.
  */
 export async function markConversionTokenUsed(
   token: string
@@ -145,5 +148,5 @@ export async function markConversionTokenUsed(
 
   await db
     .collection(CONVERSION_COLLECTION)
-    .updateOne({ token }, { $set: { used: true } });
+    .updateOne({ tokenHash: sha256(token) }, { $set: { used: true } });
 }
