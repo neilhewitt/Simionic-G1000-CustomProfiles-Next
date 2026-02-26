@@ -59,41 +59,36 @@ This document lists every open issue from `CODE_REVIEW.md`, ordered from highest
 
 ---
 
-## Issue 3 — Database Transactions on Account Conversion Flow
+## Issue 3 — Transaction-Free Idempotent Account Conversion Flow ✅
 
 **CODE_REVIEW ref:** §2.2 (HIGH)
 
 **Problem:** The conversion endpoint (`POST /api/auth/convert/complete`) performs three sequential database operations (`createUser`, `updateProfileOwner`, `markConversionTokenUsed`) without atomicity. A crash between steps can leave orphaned data.
 
-**Files to change:**
-- `src/app/api/auth/convert/complete/route.ts`
-- `src/lib/user-store.ts` — add session-aware overloads
-- `src/lib/data-store.ts` — add session-aware overloads
-- `src/lib/token-store.ts` — add session-aware overloads
-- `src/lib/mongodb.ts` — export the `MongoClient` (already exports `clientPromise`)
+**Solution implemented:** Transaction-free, idempotent, retriable conversion flow. No MongoDB replica set required.
+
+**Invariants enforced:**
+- **Unique index on `users.email`** — prevents duplicate accounts (was already present).
+- **Unique index on `conversion_tokens.tokenHash`** — prevents duplicate tokens (upgraded from non-unique).
+- **Idempotent user creation** — `createUserIdempotent()` catches duplicate-key errors and returns the existing user.
+- **Idempotent profile migration** — `updateMany` is naturally idempotent; re-running when profiles are already migrated yields `modifiedCount === 0`.
+- **Token marked used LAST** — only after user creation and migration succeed. Uses conditional atomic update (`{ used: false }` → `{ used: true }`).
+- **Retry safety** — if the token is already `used`, the endpoint checks for the existing user and returns 200 "Account already converted."
+
+**Files changed:**
+- `src/app/api/auth/convert/complete/route.ts` — idempotent flow with contextual logging
+- `src/lib/user-store.ts` — added `createUserIdempotent()` (catches duplicate key error 11000)
+- `src/lib/token-store.ts` — added `findConversionToken()` (ignores `used` flag); `markConversionTokenUsed()` now returns `boolean` via conditional update; `tokenHash` index upgraded to unique
 
 **Steps:**
 
-- [ ] **3a — Export `getClient()` from `mongodb.ts`.** Add `export async function getClient(): Promise<MongoClient> { return clientPromise; }` so route handlers can start sessions.
-- [ ] **3b — Add session-parameter variants to store functions.** For `createUser`, `updateProfileOwner`, and `markConversionTokenUsed`, add an optional `session?: ClientSession` parameter. When provided, pass it as the `options` argument to every MongoDB operation.
-- [ ] **3c — Wrap the conversion route in a transaction.** In `convert/complete/route.ts`:
-  ```ts
-  const client = await getClient();
-  const session = client.startSession();
-  try {
-    await session.withTransaction(async () => {
-      const user = await createUser(email, name.trim(), passwordHash, session);
-      await updateProfileOwner(oldOwnerId, user.ownerId, user.name, session);
-      await markConversionTokenUsed(token, session);
-    });
-    return NextResponse.json({ message: "Account converted successfully.", profilesMigrated: migratedCount });
-  } finally {
-    await session.endSession();
-  }
-  ```
-- [ ] **3d — Validate.** Ensure the conversion flow still works end to end. Verify that a simulated failure (e.g., throw between steps) rolls back all changes (requires a MongoDB replica set — note this in the PR if testing locally with a standalone instance).
-
-**Note:** MongoDB transactions require a replica set or sharded cluster. Document this deployment requirement.
+- [x] **3a — Make conversion flow idempotent and retriable without MongoDB transactions.**
+- [x] **3b — Add `createUserIdempotent()` to handle duplicate-key errors gracefully.**
+- [x] **3c — Add `findConversionToken()` to look up tokens regardless of `used` status.**
+- [x] **3d — Make `markConversionTokenUsed()` use conditional atomic update and return boolean.**
+- [x] **3e — Ensure unique index on `conversion_tokens.tokenHash`.**
+- [x] **3f — Mark token used only after user creation and profile migration succeed.**
+- [x] **3g — Add contextual server-side logging (email, ownerId, migrated count).**
 
 ---
 

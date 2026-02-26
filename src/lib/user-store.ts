@@ -1,5 +1,6 @@
 import { getDb } from "./mongodb";
 import { randomUUID } from "crypto";
+import { MongoServerError } from "mongodb";
 
 const COLLECTION = "users";
 
@@ -38,6 +39,46 @@ export async function createUser(
   };
   await db.collection(COLLECTION).insertOne(user);
   return user;
+}
+
+/**
+ * Creates a user idempotently. If a user with the same email already exists
+ * (duplicate key on the unique email index), the existing user is returned
+ * together with a flag indicating whether the user was newly created.
+ * This is safe for retries and race conditions during account conversion.
+ */
+export async function createUserIdempotent(
+  email: string,
+  name: string,
+  passwordHash: string
+): Promise<{ user: User; created: boolean }> {
+  await ensureIndexes();
+  const db = await getDb();
+  const normalizedEmail = email.toLowerCase().trim();
+  const user: User = {
+    email: normalizedEmail,
+    name,
+    passwordHash,
+    ownerId: randomUUID(),
+    createdAt: new Date(),
+  };
+
+  try {
+    await db.collection(COLLECTION).insertOne(user);
+    return { user, created: true };
+  } catch (err) {
+    // Duplicate key error code 11000 on the unique email index
+    if (err instanceof MongoServerError && err.code === 11000) {
+      const existing = await findUserByEmail(normalizedEmail);
+      if (!existing) {
+        throw new Error(
+          `Duplicate key error on email "${normalizedEmail}" but user not found on re-read`
+        );
+      }
+      return { user: existing, created: false };
+    }
+    throw err;
+  }
 }
 
 export async function findUserByEmail(

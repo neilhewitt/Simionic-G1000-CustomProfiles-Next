@@ -90,7 +90,7 @@ async function ensureConversionIndexes() {
   const db = await getDb();
   const col = db.collection(CONVERSION_COLLECTION);
   await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-  await col.createIndex({ tokenHash: 1 });
+  await col.createIndex({ tokenHash: 1 }, { unique: true });
   conversionIndexesEnsured = true;
 }
 
@@ -137,16 +137,41 @@ export async function getConversionToken(
 }
 
 /**
- * Marks a conversion token as used.
- * Accepts the raw token; looks up by its SHA-256 hash.
+ * Returns a conversion token record regardless of its `used` status (but still
+ * requires it to be non-expired). Used by the idempotent conversion flow to
+ * detect retries on an already-completed token.
  */
-export async function markConversionTokenUsed(
+export async function findConversionToken(
   token: string
-): Promise<void> {
+): Promise<ConversionToken | null> {
   await ensureConversionIndexes();
   const db = await getDb();
 
-  await db
+  const doc = await db.collection(CONVERSION_COLLECTION).findOne({
+    tokenHash: sha256(token),
+    expiresAt: { $gt: new Date() },
+  });
+
+  return doc as unknown as ConversionToken | null;
+}
+
+/**
+ * Atomically marks a conversion token as used only if it has not already been
+ * marked. Returns true if this call actually flipped the flag, false if it was
+ * already used (safe for retries).
+ */
+export async function markConversionTokenUsed(
+  token: string
+): Promise<boolean> {
+  await ensureConversionIndexes();
+  const db = await getDb();
+
+  const result = await db
     .collection(CONVERSION_COLLECTION)
-    .updateOne({ tokenHash: sha256(token) }, { $set: { used: true } });
+    .updateOne(
+      { tokenHash: sha256(token), used: false },
+      { $set: { used: true } }
+    );
+
+  return result.modifiedCount > 0;
 }
