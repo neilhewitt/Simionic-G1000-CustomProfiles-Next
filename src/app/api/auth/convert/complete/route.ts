@@ -7,7 +7,13 @@ import { updateProfileOwner } from "@/lib/data-store";
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, email, name, password } = await request.json();
+    let body: { token?: string; email?: string; name?: string; password?: string };
+    try {
+      body = await request.json() as typeof body;
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
+    const { token, email, name, password } = body;
 
     if (!token || !email || !name || !password) {
       return NextResponse.json({ error: "All fields are required." }, { status: 400 });

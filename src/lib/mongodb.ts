@@ -26,7 +26,10 @@ if (process.env.NODE_ENV === "development") {
   clientPromise = globalWithMongo._mongoClientPromise;
 } else {
   client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
+  clientPromise = client.connect().catch((err) => {
+    console.error("Failed to connect to MongoDB:", err);
+    throw err;
+  });
 }
 
 export async function getDb(): Promise<Db> {

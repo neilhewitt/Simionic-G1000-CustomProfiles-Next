@@ -9,7 +9,7 @@ export async function getAllProfiles(): Promise<ProfileSummary[]> {
   const docs = await db
     .collection(COLLECTION)
     .find(
-      {},
+      { IsPublished: true },
       {
         projection: {
           _id: 0,

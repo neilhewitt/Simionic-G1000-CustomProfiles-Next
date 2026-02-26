@@ -41,7 +41,12 @@ export async function POST(
       return NextResponse.json({ error: "Invalid profile ID" }, { status: 400 });
     }
 
-    const profile: Profile = await request.json();
+    let profile: Profile;
+    try {
+      profile = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
 
     // Server-side input validation
     if (typeof profile.Name !== "string" || !profile.Name.trim()) {
