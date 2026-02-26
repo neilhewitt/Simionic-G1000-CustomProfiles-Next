@@ -3,9 +3,27 @@
  *
  * Each key (typically the client IP) maintains a list of request timestamps.
  * Expired entries are pruned on every call to keep memory bounded.
+ * Stale keys (with no recent timestamps) are removed periodically.
  */
 
 const store = new Map<string, number[]>();
+
+// Periodically prune stale keys (every 5 minutes)
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+let lastCleanup = Date.now();
+
+function pruneStaleKeys(maxWindowMs: number) {
+  const now = Date.now();
+  if (now - lastCleanup < CLEANUP_INTERVAL_MS) return;
+  lastCleanup = now;
+
+  const cutoff = now - maxWindowMs;
+  for (const [key, timestamps] of store) {
+    if (timestamps.length === 0 || timestamps[timestamps.length - 1] <= cutoff) {
+      store.delete(key);
+    }
+  }
+}
 
 export interface RateLimitResult {
   success: boolean;
@@ -28,6 +46,9 @@ export function rateLimit(
 ): RateLimitResult {
   const now = Date.now();
   const cutoff = now - windowMs;
+
+  // Periodically clean up stale keys
+  pruneStaleKeys(windowMs);
 
   let timestamps = store.get(key) ?? [];
 

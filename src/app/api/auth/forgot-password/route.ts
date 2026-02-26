@@ -39,8 +39,11 @@ export async function POST(request: NextRequest) {
     }
 
     const token = await createResetCode(email);
-    const appUrl = process.env.APP_URL ?? "http://localhost:3000";
-    const resetLink = `${appUrl}/auth/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+    const appUrl = process.env.APP_URL;
+    if (!appUrl) {
+      console.warn("APP_URL is not set; reset link will use localhost fallback.");
+    }
+    const resetLink = `${appUrl ?? "http://localhost:3000"}/auth/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
     const emailService = getEmailService();
 
     await emailService.sendEmail(
