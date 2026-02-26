@@ -68,6 +68,7 @@ export default function ProfilePageContent() {
     if (!editing || profile === null) return;
     function handleBeforeUnload(e: BeforeUnloadEvent) {
       e.preventDefault();
+      e.returnValue = '';
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
@@ -121,7 +122,7 @@ export default function ProfilePageContent() {
     // Re-fetch to discard unsaved changes
     fetch(`/api/profiles/${id}`)
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to reload profile");
+        if (!res.ok) throw new Error(`Failed to reload profile: ${res.status} ${res.statusText}`);
         return res.json();
       })
       .then((data) => {

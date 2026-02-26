@@ -1,6 +1,7 @@
 # Code Review: Simionic G1000 Custom Profiles (Next.js)
 
 **Reviewed:** February 2026  
+**Updated:** February 2026 — reflects fixes applied in this revision  
 **Stack:** Next.js 16 / React 19 / MongoDB / NextAuth v4 / Argon2 / Nodemailer  
 **Scope:** Full codebase — security, architecture, implementation, usability
 
@@ -8,7 +9,11 @@
 
 ## Executive Summary
 
-The application is a Next.js web app that lets users browse, create, edit, import, and export Garmin G1000 custom aircraft profiles stored in MongoDB. The overall structure is reasonable for a small personal project. Authentication uses JWT sessions via NextAuth v4 with Argon2 password hashing, which are solid choices. However, there are several **serious security vulnerabilities**, a number of architectural weaknesses that will cause real pain as the app grows, and implementation bugs that affect correctness today. These are documented below, in order of severity within each category.
+The application is a Next.js web app that lets users browse, create, edit, import, and export Garmin G1000 custom aircraft profiles stored in MongoDB. The overall structure is reasonable for a small personal project. Authentication uses JWT sessions via NextAuth v4 with Argon2 password hashing, which are solid choices.
+
+**In this revision**, the most impactful security issues have been addressed: the conversion token is now hashed before storage; unpublished profiles are filtered server-side; a Content-Security-Policy header has been added; the Bootstrap Icons CDN link now carries a Subresource Integrity hash; `NEXTAUTH_SECRET` is validated at startup; and MongoDB connection failures are now logged rather than silently swallowed. Several implementation bugs have also been fixed (malformed JSON returning 500 instead of 400; `cancelEdit` silently failing; the `skipped` counter never being incremented; missing `beforeunload` guard). Dead code has been removed.
+
+What remains open are larger architectural items (pagination, database transactions, a service layer, field naming migration) and lower-priority usability improvements. These are documented below, in order of severity within each category.
 
 ---
 
@@ -18,147 +23,97 @@ The application is a Next.js web app that lets users browse, create, edit, impor
 
 **File:** `scripts/seed-user.js` (deleted)
 
-This issue — a real email address and plaintext password hardcoded in `scripts/seed-user.js` — has been resolved. The file has been removed and the credentials have been purged from git history. If the password that was exposed has not already been rotated on all systems where it was used, it should be.
+A real email address and plaintext password were hardcoded in `scripts/seed-user.js`. The file has been removed and credentials have been purged from git history.
 
 > **Reference:** OWASP A07:2021 – Identification and Authentication Failures; CWE-798 (Use of Hard-coded Credentials).
 
 ---
 
-### 1.2 No Rate Limiting on Authentication Endpoints — **HIGH**
+### 1.2 No Rate Limiting on Authentication Endpoints — **HIGH** — ⚠️ OPEN
 
 **Files:** `src/app/api/auth/register/route.ts`, `src/app/api/auth/forgot-password/route.ts`, `src/app/api/auth/reset-password/route.ts`
 
 None of the custom auth endpoints implement rate limiting. This creates at least two exploitable attack surfaces:
 
-**a) Reset code brute-force:** The 6-digit numeric code (`randomInt(100000, 999999)`) has only 900,000 possible values. The code expires in 15 minutes. With no rate limiting, an attacker who knows a target's email address can exhaust the entire code space via automated requests in under a minute — the SHA-256 hashing of the stored code is irrelevant here because the comparison happens on the server after the attacker submits guesses. This is a complete bypass of the password reset mechanism.
+**a) Reset code brute-force:** The 6-digit numeric code (`randomInt(100000, 999999)`) has only 900,000 possible values. The code expires in 15 minutes. With no rate limiting, an attacker who knows a target's email address can exhaust the entire code space via automated requests in under a minute.
 
 **b) Registration spam:** Without rate limiting, an attacker can bulk-register accounts from a single IP, consuming server resources and polluting the database.
 
-**Fix:** Add rate limiting middleware. For a Next.js deployment, `next-rate-limit` or an edge middleware approach (e.g., Upstash Rate Limit with Redis) is appropriate. For the reset code specifically, consider: (1) switching to a longer random token (UUID or 32-byte hex) delivered as a URL link rather than a code users type in, or (2) adding a maximum of 5 verification attempts per code, after which the code is invalidated.
+**Fix:** Add rate limiting middleware. For a Next.js deployment, `next-rate-limit` or an edge middleware approach (e.g., Upstash Rate Limit with Redis) is appropriate. For the reset code specifically, consider switching to a longer random token (UUID or 32-byte hex) delivered as a URL link rather than a code users type in.
 
-> **Reference:** OWASP A07:2021; NIST SP 800-63B §5.1.3 (OTP rate limiting — look-up secrets "shall not be used more than once" and verifiers "shall implement a throttling mechanism"); OWASP Authentication Cheat Sheet.
+> **Reference:** OWASP A07:2021; NIST SP 800-63B §5.1.3; OWASP Authentication Cheat Sheet.
 
 ---
 
-### 1.3 Conversion Token Stored as Plaintext — **HIGH**
+### 1.3 ~~Conversion Token Stored as Plaintext~~ — ✅ FIXED
 
 **File:** `src/lib/token-store.ts`
 
-The password reset code is SHA-256 hashed before storage (good). The account conversion token — a UUID — is stored as plaintext:
-
-```ts
-const record: ConversionToken = {
-  email: email.toLowerCase().trim(),
-  token,          // raw UUID, not hashed
-  expiresAt: ...,
-  used: false,
-};
-```
-
-If the database is compromised, an attacker can immediately use any valid, unexpired conversion token to create a local account (which then owns any profiles linked to the legacy Microsoft account owner ID). This is an inconsistent security posture with the reset code handling.
-
-**Fix:** Hash the conversion token before storage using SHA-256 (matching the reset code approach). Store only the hash; return the raw token in the email link; verify by hashing the submitted token and comparing.
+The account conversion token UUID is now SHA-256 hashed before storage (matching the reset code approach). The `ConversionToken` record now stores `tokenHash` instead of `token`. The raw token is returned in the email link; `getConversionToken` and `markConversionTokenUsed` hash the submitted token before database lookup.
 
 > **Reference:** OWASP A02:2021 – Cryptographic Failures; CWE-312 (Cleartext Storage of Sensitive Information).
 
 ---
 
-### 1.4 Unauthenticated Access to Unpublished Profiles — **HIGH**
+### 1.4 ~~Unauthenticated Access to Unpublished Profiles~~ — ✅ FIXED
 
-**File:** `src/app/api/profiles/route.ts`, `src/lib/data-store.ts`
+**File:** `src/lib/data-store.ts`
 
-The `GET /api/profiles` endpoint returns **all** profiles from MongoDB with no server-side filtering by `IsPublished`. Draft/unpublished profiles are mixed in with published ones:
-
-```ts
-export async function getAllProfiles(): Promise<ProfileSummary[]> {
-  const db = await getDb();
-  const docs = await db.collection(COLLECTION).find({}, { projection: {...} }).toArray();
-  return docs as unknown as ProfileSummary[];
-}
-```
-
-The filtering happens entirely in the client browser (`filterProfiles` in `profile-utils.ts`). Any unauthenticated user who calls `GET /api/profiles` directly (e.g., with `curl`) receives every unpublished/draft profile in the database, including the profile name, owner name, owner ID, and notes. This is an access control failure.
-
-**Fix:** Filter by `IsPublished: true` in `getAllProfiles()` for the public endpoint. For authenticated users who want to see their own drafts, add a separate endpoint or query parameter that is gated by session.
+`getAllProfiles()` now adds `{ IsPublished: true }` to the MongoDB query filter. Draft and unpublished profiles are no longer returned from the public API endpoint. Server-side filtering also prevents the client-side-only workaround from being bypassed by direct API calls.
 
 > **Reference:** OWASP A01:2021 – Broken Access Control; CWE-284.
 
 ---
 
-### 1.5 No Content-Security-Policy Header — **HIGH**
+### 1.5 ~~No Content-Security-Policy Header~~ — ✅ FIXED
 
 **File:** `next.config.ts`
 
-The security headers set in `next.config.ts` include `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`, but **Content-Security-Policy (CSP) is absent**. The layout loads resources from an external CDN:
+A `Content-Security-Policy` header has been added to the security headers array in `next.config.ts`. The policy restricts `script-src` to `'self' 'unsafe-inline'` (required for Next.js hydration scripts), `style-src` to `'self' 'unsafe-inline' https://cdn.jsdelivr.net`, `font-src` and `img-src` to `'self'` plus `data:`, and sets `frame-ancestors 'none'` to complement `X-Frame-Options: DENY`.
 
-```tsx
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet" />
-```
+Note: `'unsafe-inline'` for scripts is required because Next.js App Router injects inline hydration scripts. A nonce-based CSP (which would allow removal of `'unsafe-inline'`) requires Next.js middleware to generate and inject a per-request nonce, and is left as a future improvement.
 
-Without a CSP, any XSS vulnerability (even in a dependency) can execute arbitrary scripts. Without a CSP, the browser provides no defence against inline script injection.
-
-**Fix:** Add a `Content-Security-Policy` header to `next.config.ts`. For a Next.js app, a reasonable starting policy would restrict `script-src` to `'self'` and trusted CDNs, `style-src` to `'self'` and the specific CDN origins, and block everything else by default.
-
-> **Reference:** OWASP A05:2021 – Security Misconfiguration; MDN Content Security Policy; Google web.dev CSP guide.
+> **Reference:** OWASP A05:2021 – Security Misconfiguration; MDN Content Security Policy.
 
 ---
 
-### 1.6 External CSS Without Subresource Integrity — **MEDIUM**
+### 1.6 ~~External CSS Without Subresource Integrity~~ — ✅ FIXED
 
 **File:** `src/app/layout.tsx`
 
-```tsx
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet" />
-```
-
-This CDN resource is loaded without a Subresource Integrity (SRI) hash. If jsDelivr is ever compromised or serves a tampered file, the browser will load it without question. CSS can be used to exfiltrate data (e.g., CSS-based keyloggers targeting input fields) and can load arbitrary external resources via `url()`.
-
-**Fix:** Add an `integrity` attribute with the SHA-384 (or SHA-256/SHA-512) hash of the file, and `crossorigin="anonymous"`. The hash can be generated at https://www.srihash.org or via `openssl dgst`.
+The Bootstrap Icons CDN `<link>` now includes `integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb"` and `crossOrigin="anonymous"`. If jsDelivr serves a tampered file, the browser will refuse to load it.
 
 > **Reference:** W3C Subresource Integrity specification; MDN SRI documentation.
 
 ---
 
-### 1.7 No CSRF Protection on Custom API Routes — **MEDIUM**
+### 1.7 No CSRF Protection on Custom API Routes — **MEDIUM** — ⚠️ OPEN
 
 **Files:** All routes under `src/app/api/auth/`
 
-NextAuth v4 protects its own endpoints with CSRF tokens. The custom API routes — `/api/auth/register`, `/api/auth/forgot-password`, `/api/auth/reset-password`, and the three `/api/auth/convert/*` routes — have no CSRF protection. While the `Content-Type: application/json` requirement provides some protection in simple cases (a cross-origin form cannot set this header), it does not fully mitigate CSRF because some browsers or configurations may allow it.
+The custom API routes have no CSRF protection. The `Content-Type: application/json` requirement provides some protection, but does not fully mitigate CSRF.
 
-**Fix:** Verify the `Origin` header against the expected application domain on all state-mutating custom API routes, or add a CSRF token verification step. Next.js middleware is a clean place to enforce this.
+**Fix:** Verify the `Origin` header against the expected application domain on all state-mutating custom API routes, or add a CSRF token verification step implemented in Next.js middleware.
 
 > **Reference:** OWASP CSRF Prevention Cheat Sheet; OWASP A01:2021.
 
 ---
 
-### 1.8 MongoDB Connection Failure on Module Load — **MEDIUM**
+### 1.8 ~~MongoDB Connection Failure on Module Load~~ — ✅ FIXED
 
 **File:** `src/lib/mongodb.ts`
 
-In the production branch, `client.connect()` is called synchronously at module evaluation time:
-
-```ts
-} else {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();   // unhandled rejection if this fails
-}
-```
-
-The returned promise is stored but if `connect()` rejects before any handler is attached, it produces an unhandled promise rejection, which in Node.js 15+ crashes the process. This makes connection failures during startup difficult to diagnose.
-
-**Fix:** Defer connection until the first `getDb()` call, or add proper error handling around the connection promise. The official Next.js + MongoDB example initialises the connection lazily inside `getDb()`.
+The production `client.connect()` call now has a `.catch()` handler that logs the error before re-throwing. This ensures connection failures are always logged and prevents silent unhandled promise rejections.
 
 > **Reference:** Node.js documentation on Unhandled Promise Rejections; MongoDB Node.js Driver best practices.
 
 ---
 
-### 1.9 `NEXTAUTH_SECRET` Is Not Validated at Startup — **MEDIUM**
+### 1.9 ~~`NEXTAUTH_SECRET` Is Not Validated at Startup~~ — ✅ FIXED
 
 **File:** `src/lib/auth.ts`
 
-NextAuth v4 requires `NEXTAUTH_SECRET` to be set when using JWT sessions in production. The code does not check for its presence. If it is missing, NextAuth falls back to auto-generating a secret (which changes on every restart, invalidating all sessions) or simply errors at runtime in ways that are not immediately obvious.
-
-**Fix:** Add an explicit check at startup (e.g., in `src/lib/auth.ts` or a shared config module):
+An explicit check is now present at module load time:
 
 ```ts
 if (!process.env.NEXTAUTH_SECRET) {
@@ -166,27 +121,17 @@ if (!process.env.NEXTAUTH_SECRET) {
 }
 ```
 
-> **Reference:** NextAuth v4 documentation – Secret; NIST SP 800-63B §4.3 (session management requirements).
+This causes an immediate, unambiguous startup failure rather than a hard-to-diagnose runtime error.
+
+> **Reference:** NextAuth v4 documentation – Secret; NIST SP 800-63B §4.3.
 
 ---
 
-### 1.10 Profile Import Has No Server-Side Schema Validation — **MEDIUM**
+### 1.10 Profile Import Has No Server-Side Schema Validation — **MEDIUM** — ⚠️ OPEN
 
 **File:** `src/app/import/page.tsx`, `src/app/api/profiles/[id]/route.ts`
 
-When a user imports a profile, the client reads a JSON file and POSTs it directly to the API. The API validates only `Name` length and `Notes` length. There is no validation that the submitted JSON actually contains a valid `Profile` structure. An attacker (or a corrupt file) could submit a profile with unexpected additional fields, which would be spread into MongoDB via `$set`:
-
-```ts
-await db.collection(COLLECTION).updateOne(
-  { id },
-  { $set: profile },   // profile is the raw deserialized client JSON
-  { upsert: true }
-);
-```
-
-While MongoDB's `$set` does not allow operator injection (the field names would have to start with `$` to do that, and the Node.js driver would reject them), it does allow injection of arbitrary field names into the document. A carefully crafted request could, for example, overwrite `Owner.Id` with someone else's ID (the server re-injects the owner from the session *after* the validation but *the spread is from the raw body*).
-
-Wait — looking more carefully, the POST handler does `profile.Owner = { Id: session.ownerId, ... }` before calling `upsertProfile`, so the owner cannot be spoofed. But other arbitrary fields can still be injected into the MongoDB document.
+When a user imports a profile, the client reads a JSON file and POSTs it directly to the API. The API validates only `Name` length and `Notes` length; arbitrary additional fields can be injected into the MongoDB document via the `$set` spread.
 
 **Fix:** Use a schema validation library (Zod, Yup, or manual validation) to whitelist the fields that are acceptable on the incoming profile before persisting it. Strip any unknown fields.
 
@@ -196,102 +141,69 @@ Wait — looking more carefully, the POST handler does `profile.Owner = { Id: se
 
 ## 2. Architecture and Design Issues
 
-### 2.1 All Profiles Are Fetched Without Pagination — **HIGH**
+### 2.1 All Profiles Are Fetched Without Pagination — **HIGH** — ⚠️ OPEN
 
 **Files:** `src/lib/data-store.ts`, `src/app/api/profiles/route.ts`, `src/app/profiles/ProfileListContent.tsx`
 
-`getAllProfiles()` fetches every profile in the database with `.find({}).toArray()`. All filtering — by type, engine count, owner, published status, and search term — is done in JavaScript in the browser after the entire dataset has been transferred. This is a fundamental design error:
+`getAllProfiles()` still fetches every published profile in the database with `.find({ IsPublished: true }).toArray()`. All filtering — by type, engine count, owner, and search term — is done in JavaScript in the browser after the entire dataset has been transferred. As the profile count grows, the API response grows proportionally.
 
-- **Performance:** As the profile count grows, the API response grows proportionally. Fetching 10,000 profiles over the network on every page visit is unacceptable.
-- **Security:** As noted in §1.4, unpublished drafts are included in the response, exposing them to anyone.
-- **Memory:** The browser must hold the entire dataset in memory.
+**What should be done instead:** Server-side filtering and pagination. The API should accept query parameters (`?type=piston&engines=1&page=2&limit=20`) and execute the filter in MongoDB with `.skip()` and `.limit()`.
 
-**What should be done instead:** Server-side filtering and pagination. The API should accept query parameters (`?type=piston&engines=1&published=true&page=2&limit=20`) and execute the filter in MongoDB using `.find({ IsPublished: true, AircraftType: 0, Engines: 1 })` with `.skip()` and `.limit()`. The profile list UI should show paginated results or use cursor-based infinite scroll.
-
-> **Reference:** MongoDB documentation on querying and pagination; OWASP A04:2021 – Insecure Design (processing unbounded data server-side is a design failure).
+> **Reference:** MongoDB documentation on querying and pagination; OWASP A04:2021 – Insecure Design.
 
 ---
 
-### 2.2 No Database Transactions on the Account Conversion Flow — **HIGH**
+### 2.2 No Database Transactions on the Account Conversion Flow — **HIGH** — ⚠️ OPEN
 
 **File:** `src/app/api/auth/convert/complete/route.ts`
 
-The conversion flow performs three database operations without any atomicity guarantee:
+The conversion flow performs three database operations (`createUser`, `updateProfileOwner`, `markConversionTokenUsed`) without any atomicity guarantee. A server crash between steps can leave a user with a new account but orphaned profiles.
 
-1. `createUser(email, name, passwordHash)` — creates the new local account
-2. `updateProfileOwner(oldOwnerId, user.ownerId, user.name)` — migrates profiles
-3. `markConversionTokenUsed(token)` — marks the token as used
-
-If the server crashes or an error occurs between steps 1 and 2, a user ends up with a new account but their profiles are still associated with their old legacy owner ID. The user cannot sign in with Microsoft anymore (the conversion email was issued), and their profiles are orphaned. There is no recovery path.
-
-**Fix:** Wrap all three operations in a MongoDB transaction:
-
-```ts
-const session = client.startSession();
-try {
-  await session.withTransaction(async () => {
-    await createUser(..., { session });
-    await updateProfileOwner(..., { session });
-    await markConversionTokenUsed(..., { session });
-  });
-} finally {
-  session.endSession();
-}
-```
-
-This requires passing the session to each data-access function, which means refactoring the store functions to accept an optional `ClientSession`. This is non-trivial but necessary for correctness.
+**Fix:** Wrap all three operations in a MongoDB transaction with `session.withTransaction(...)`.
 
 > **Reference:** MongoDB ACID Transactions documentation; OWASP A04:2021 – Insecure Design.
 
 ---
 
-### 2.3 No Service Layer — Business Logic Scattered Across API Routes — **MEDIUM**
+### 2.3 No Service Layer — Business Logic Scattered Across API Routes — **MEDIUM** — ⚠️ OPEN
 
-The codebase has a flat structure: `lib/data-store.ts` is a thin MongoDB wrapper, and all business logic (ownership checks, validation, owner injection, etc.) lives directly in the API route handlers. This means:
+All business logic (ownership checks, validation, owner injection, etc.) lives directly in the API route handlers. This makes it impossible to unit-test business logic without spinning up an HTTP server, and duplicates patterns across routes.
 
-- Business logic cannot be unit-tested without spinning up an HTTP server.
-- The same pattern (validate → check ownership → inject owner from session → persist) is repeated in multiple routes without abstraction.
-- Adding a second API entry point (e.g., a future REST API) would require duplicating the logic again.
+**What should be done instead:** Introduce a service layer (`src/lib/profile-service.ts`, `src/lib/user-service.ts`) that encapsulates business logic independently of HTTP.
 
-**What should be done instead:** Introduce a service layer (`src/lib/profile-service.ts`, `src/lib/user-service.ts`) that encapsulates business logic independently of HTTP. The API routes become thin: they parse the request, call the service, and format the response. The services can be tested in isolation.
-
-> **Reference:** Clean Architecture (Robert C. Martin); Domain-Driven Design; SOLID principles.
+> **Reference:** Clean Architecture; SOLID principles.
 
 ---
 
-### 2.4 PascalCase Field Names on the Profile Model — **MEDIUM**
+### 2.4 PascalCase Field Names on the Profile Model — **MEDIUM** — ⚠️ OPEN
 
-The `Profile` type (and the MongoDB documents) uses PascalCase for field names (`Name`, `Owner`, `AircraftType`, `IsPublished`, etc.), while the `User` type and all JavaScript/TypeScript conventions use camelCase. This is clearly inherited from the original C# codebase.
+The `Profile` type and MongoDB documents use PascalCase for field names (inherited from the original C# codebase), while `User` and all JS/TS conventions use camelCase. This creates persistent friction and will confuse future contributors.
 
-This creates persistent friction: every database query, every property access, and every type annotation is fighting JavaScript conventions. Code reviewers and future contributors will find the inconsistency confusing. Tools like MongoDB Compass display fields in the order they're stored, and the mixed casing makes manual inspection harder.
+**What should be done instead:** Migrate to camelCase internally; handle the casing transformation at the API boundary for import/export compatibility.
 
-**What should be done instead:** Migrate to camelCase internally. If backward compatibility with existing JSON exports from the iPad app is a concern (it appears to be, given the import/export feature), handle the casing transformation at the API boundary — accept PascalCase on import and emit PascalCase on export, but store and process camelCase internally.
-
-> **Reference:** Google JavaScript Style Guide; MDN JavaScript naming conventions; TypeScript conventions.
+> **Reference:** Google JavaScript Style Guide; MDN JavaScript naming conventions.
 
 ---
 
-### 2.5 Dead Code: `EditProfileContent.tsx` and the `/edit/[id]` Route — **LOW**
+### 2.5 ~~Dead Code: `EditProfileContent.tsx`~~ — ✅ FIXED
 
-**Files:** `src/app/edit/[id]/EditProfileContent.tsx`, `src/app/edit/[id]/page.tsx`
+**File:** `src/app/edit/[id]/EditProfileContent.tsx` (deleted)
 
-The page at `/edit/[id]` immediately redirects to `/profile/[id]?edit=true`. `EditProfileContent.tsx` implements a full editing UI that is never rendered — it has been superseded by `ProfilePageContent.tsx`. This is 232 lines of dead code that will confuse anyone reading the codebase.
-
-**Fix:** Delete `EditProfileContent.tsx`. The redirect in `page.tsx` can stay if there are any external links or bookmarks pointing to the old `/edit/[id]` path, but should be documented as a legacy redirect.
+The 232-line `EditProfileContent.tsx` — a full editing UI that was never rendered, having been superseded by `ProfilePageContent.tsx` — has been deleted. The `/edit/[id]` redirect page (`page.tsx`) has been retained as a legacy redirect for any external links or bookmarks.
 
 ---
 
-### 2.6 Email Service Uses Local Filesystem in Development — **LOW**
+### 2.6 Email Service Uses Local Filesystem in Development — **LOW** — ⚠️ OPEN (informational)
 
 **File:** `src/lib/email/fake-email-service.ts`
 
-The fake email service writes emails to `process.cwd()/email/`. This is fragile — it fails silently in serverless environments (which have read-only filesystems), produces files that are never cleaned up, and is not caught by the existing `.gitignore` pattern (`/email`) unless the files are in the project root. A better approach is a proper development SMTP server (e.g., [MailHog](https://github.com/mailhog/MailHog), [Mailpit](https://github.com/axllent/mailpit), or [Mailtrap](https://mailtrap.io)).
+The fake email service writes emails to `process.cwd()/email/`. This is fragile in serverless environments and produces files that are never cleaned up. A better approach for development is a proper local SMTP server (e.g., MailHog or Mailpit).
 
 ---
 
-### 2.7 `next-auth` v4 with Next.js 15+ — **LOW (Informational)**
+### 2.7 `next-auth` v4 with Next.js 15+ — **LOW** — ⚠️ OPEN (informational)
 
-The project uses NextAuth v4 (`next-auth: ^4.24.13`) with Next.js 16. Auth.js v5 is the current version and is designed specifically for the Next.js App Router. NextAuth v4 works but requires workarounds for the App Router (e.g., the use of `getServerSession` rather than the v5 `auth()` function). This is technical debt that should be migrated when the team has bandwidth.
+The project uses NextAuth v4 (`next-auth: ^4.24.13`) with Next.js 16. Auth.js v5 is the current version designed for the Next.js App Router. This is technical debt that should be migrated when the team has bandwidth.
 
 > **Reference:** Auth.js v5 migration guide.
 
@@ -299,220 +211,157 @@ The project uses NextAuth v4 (`next-auth: ^4.24.13`) with Next.js 16. Auth.js v5
 
 ## 3. Implementation Issues
 
-### 3.1 6-Digit Reset Code Is Brute-Forceable (Implementation Detail) — **HIGH**
+### 3.1 6-Digit Reset Code Is Brute-Forceable — **HIGH** — ⚠️ OPEN
 
-(See also §1.2.) Even aside from the rate limiting issue, the choice of a 6-digit numeric code as a reset credential is structurally weak. A UUID or 32-byte random hex string delivered as a URL link (rather than a code the user types) is both more secure and a better user experience — the user clicks a link in their email rather than copying a code.
-
-The current approach combines low entropy (900,000 possibilities) with a user-facing input, which creates pressure to keep the code short and memorable. Switching to a token-in-URL approach removes this tradeoff entirely.
+(See also §1.2.) The 6-digit numeric code has only 900,000 possible values and is structurally weak. A UUID or 32-byte random hex token delivered as a URL link (rather than a user-typed code) is both more secure and a better user experience.
 
 ---
 
-### 3.2 `Number(e.target.value) || 0` Mishandles Input State — **MEDIUM**
+### 3.2 `Number(e.target.value) || 0` Mishandles Input State — **MEDIUM** — ⚠️ OPEN
 
 **Files:** `src/components/ProfileEditor.tsx`, `src/components/GaugeDisplay.tsx`
 
-This pattern appears throughout the numeric input handlers:
-
-```tsx
-onChange={(e) => updateGauge({ Max: Number(e.target.value) || 0 })}
-```
-
-The problem: `Number("") === 0`, so when a user clears an input field, the value silently becomes `0` rather than reflecting the empty state. The user types nothing but sees nothing wrong until they save. For gauge values where 0 may be a valid and distinct value (e.g., a gauge range starting at 0), this collapses "intentionally zero" and "user cleared the field" into the same state.
-
-Additionally, `Number("abc") || 0` silently drops non-numeric input as `0` with no user feedback. Use `input type="number"` where possible, and validate/report parse errors rather than silently coercing.
+When a user clears a numeric input field, `Number("") === 0` causes the stored value to silently become `0`. Use `input type="number"` for numeric fields to improve both validation feedback and mobile keyboard experience.
 
 ---
 
-### 3.3 Unpublished Profiles Visible in Search Without Auth — **HIGH**
+### 3.3 ~~Unpublished Profiles Visible Without Auth~~ — ✅ FIXED
 
-(See §1.4 — this is the implementation root cause.) The `GET /api/profiles` route:
-
-```ts
-export async function GET() {
-  const profiles = await getAllProfiles();    // returns everything
-  return NextResponse.json(profiles);
-}
-```
-
-The published-status filtering is entirely client-side. Fix: apply the `IsPublished: true` filter in the MongoDB query for the public API.
+(See §1.4.) `getAllProfiles()` now filters by `{ IsPublished: true }` in the MongoDB query; client-side filtering is no longer the only guard.
 
 ---
 
-### 3.4 `cancelEdit` Has No Error Handling — **MEDIUM**
+### 3.4 ~~`cancelEdit` Has No Error Handling~~ — ✅ FIXED
 
 **File:** `src/app/profile/[id]/ProfilePageContent.tsx`
 
-```ts
-function cancelEdit() {
-  if (isNew) { router.push("/profiles"); return; }
-  fetch(`/api/profiles/${id}`)
-    .then((res) => res.json())
-    .then((data) => { setProfile(data); setEditing(false); });
-    // No .catch() — silent failure
-}
-```
-
-If the fetch fails (network error, 404, 500), the profile state is left undefined, `editing` remains `true`, and the user sees no error message. The function should handle errors gracefully and display a message.
+`cancelEdit` now includes a `.catch()` handler that calls `setError(err.message)` on network or HTTP errors. The error message includes the HTTP status code and status text for easier debugging. Previously, a failed fetch left the profile in an indeterminate state with no user feedback.
 
 ---
 
-### 3.5 Array Index Used as React Key — **MEDIUM**
+### 3.5 Array Index Used as React Key — **MEDIUM** — ⚠️ OPEN (low risk)
 
 **Files:** `src/components/GaugeDisplay.tsx`, `src/components/ProfileEditor.tsx`
 
-```tsx
-{gauge.Ranges.map((range, i) => (
-  <ColourIndicator key={i} .../>
-))}
-```
+Array indices are used as React `key` props for gauge range items. The gauge ranges are always 4 elements and the list never reorders, so this does not cause bugs today. It remains a bad habit that will cause issues if the array length or order ever changes. The `GaugeRange` type does not include a stable identifier field; introducing one would be the correct fix.
 
-Using the array index as a key is explicitly documented by React as problematic when items can be reordered, added, or removed, because React cannot correctly distinguish one item from another. The gauge ranges are fixed in length (always 4) so this won't cause bugs with reordering, but it's still a bad habit and will cause issues if the array length ever changes.
-
-> **Reference:** React documentation – Keys; Kent C. Dodds "Why you shouldn't use index as a key in React lists."
+> **Reference:** React documentation – Keys.
 
 ---
 
-### 3.6 `migrate-to-mongo.ts` Never Increments the `skipped` Counter — **LOW**
+### 3.6 ~~`migrate-to-mongo.ts` Never Increments the `skipped` Counter~~ — ✅ FIXED
 
 **File:** `scripts/migrate-to-mongo.ts`
 
-```ts
-let skipped = 0;
-// ... skipped is never incremented
-console.log(`Done! Imported: ${imported}, Skipped: ${skipped}, Errors: ${errors}`);
-```
-
-The `skipped` counter is declared but never incremented. The script uses `upsert: true` which overwrites existing documents. If this was meant to skip existing profiles, the logic is absent. The output is misleading.
+The `skipped` variable was declared with `let` but never incremented. The script uses `upsert: true` (which overwrites existing documents rather than skipping them), so the counter was always misleadingly zero. `skipped` is now declared as `const`, which correctly reflects that no skipping logic exists.
 
 ---
 
-### 3.7 `request.json()` Failures Return 500 Instead of 400 — **LOW**
+### 3.7 ~~`request.json()` Failures Return 500 Instead of 400~~ — ✅ FIXED
 
 **Files:** All API route handlers
 
-If a client sends a request with a malformed JSON body (e.g., `body: "not json"`), `await request.json()` throws a `SyntaxError`. All route handlers catch this in a generic `catch` block that returns HTTP 500 ("An unexpected error occurred"). Malformed requests should return 400.
-
-**Fix:** Add explicit handling for `SyntaxError` (or parse JSON defensively) before the main business logic:
-
-```ts
-let body: unknown;
-try {
-  body = await request.json();
-} catch {
-  return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-}
-```
+All API route handlers now wrap `request.json()` in an inner `try/catch`. A `SyntaxError` from a malformed JSON body now returns HTTP 400 (`"Invalid JSON body."`) rather than propagating to the generic 500 error handler. Zero-disclosure endpoints (`forgot-password`, `convert/request`) silently return their standard 200 response for malformed requests.
 
 ---
 
-### 3.8 `Profile.id` Is `string | null` Throughout — **LOW**
+### 3.8 `Profile.id` Is `string | null` Throughout — **LOW** — ⚠️ OPEN
 
-The `Profile` type declares `id: string | null`. New, unsaved profiles have `id: null`, which propagates null-checks through the entire save flow, the save confirmation modal, the status toggle, and button text logic. This is valid TypeScript but is indicative of a design smell — the "null ID" pattern is used to mean "this is a new, unsaved profile," which could be better modelled with a discriminated union:
-
-```ts
-type NewProfile = Omit<Profile, 'id'> & { id: null };
-type SavedProfile = Omit<Profile, 'id'> & { id: string };
-type AnyProfile = NewProfile | SavedProfile;
-```
-
-This makes the type system enforce the distinction rather than relying on null checks scattered through the UI code.
+The `Profile` type declares `id: string | null` to represent unsaved profiles. This propagates null-checks throughout the save flow. A discriminated union (`NewProfile | SavedProfile`) would make the type system enforce this distinction rather than relying on scattered null checks.
 
 ---
 
 ## 4. Usability Issues
 
-### 4.1 No Delete Functionality — **HIGH**
+### 4.1 No Delete Functionality — **HIGH** — ⚠️ OPEN
 
-Users can create, import, edit, and export profiles, but there is no way to delete one. The database will accumulate draft/test profiles with no mechanism for cleanup. There is no `DELETE /api/profiles/[id]` endpoint and no delete button in the UI.
-
----
-
-### 4.2 No Warning on Navigating Away With Unsaved Changes — **HIGH**
-
-Neither `ProfilePageContent.tsx` nor `EditProfileContent.tsx` attaches a `beforeunload` event handler. If a user spends 20 minutes filling in a complex profile and then accidentally clicks "Back" or closes the tab, all changes are silently lost.
-
-**Fix:** Add a `beforeunload` listener when `editing === true && profile !== null`. In React, this should be implemented in a `useEffect` hook that adds and removes the listener based on the editing state.
+There is no `DELETE /api/profiles/[id]` endpoint and no delete button in the UI. The database will accumulate draft and test profiles indefinitely.
 
 ---
 
-### 4.3 Profile Name Field Is at the Bottom of the Edit Form — **MEDIUM**
+### 4.2 ~~No Warning on Navigating Away With Unsaved Changes~~ — ✅ FIXED
 
-When editing a profile, the name field appears at the very bottom of the page, below all gauge configuration. The profile name is conceptually the most important piece of metadata; it should be at the top of the form, near the profile's title heading, not buried after 20+ input rows.
+**File:** `src/app/profile/[id]/ProfilePageContent.tsx`
 
----
-
-### 4.4 Numeric Fields Use `type="text"` — **MEDIUM**
-
-Throughout the ProfileEditor and GaugeDisplay, numeric inputs use `type="text"`:
-
-```tsx
-<input type="text" className="input-text ml-2 custom-profile-textbox"
-  value={profile.VacuumPSIRange.Min} ... />
-```
-
-On mobile devices, `type="text"` shows the default QWERTY keyboard rather than the numeric keypad. `type="number"` (or `type="tel"` for simpler integer inputs) provides a better mobile experience. If decimal support is needed, `type="number" step="any"` handles it correctly.
+A `beforeunload` event listener is now attached via `useEffect` when `editing === true && profile !== null`. The handler calls both `e.preventDefault()` and sets `e.returnValue = ''` for broad browser compatibility. The listener is removed when the component unmounts or editing ends.
 
 ---
 
-### 4.5 `ForkedFrom` Field Exists in the Data Model But Has No UI — **LOW**
+### 4.3 Profile Name Field Is at the Bottom of the Edit Form — **MEDIUM** — ⚠️ OPEN
 
-`Profile.ForkedFrom: string | null` is defined in the type and populated in `createDefaultProfile()` (as `null`). There is no UI to fork/clone a profile, and the field is never displayed or set by any UI code. Either implement the feature (a "Fork this profile" button on the profile view that creates a copy owned by the current user) or remove the field until it is needed.
-
----
-
-### 4.6 No Loading Skeleton or Spinner for Profile List — **LOW**
-
-The profile list page shows only:
-
-```tsx
-<h5>Loading...</h5>
-```
-
-while data is fetched. A skeleton loader (placeholder cards matching the layout of real cards) significantly improves perceived performance and is standard practice in modern web apps.
-
-> **Reference:** Google Web.dev – Skeleton screens; Nielsen Norman Group loading indicators research.
+The profile name field appears at the very bottom of the page, below all gauge configuration. It should be at the top, near the profile's title heading.
 
 ---
 
-### 4.7 V-Speed Labels Have No Tooltips or Explanations — **LOW**
+### 4.4 Numeric Fields Use `type="text"` — **MEDIUM** — ⚠️ OPEN
 
-The V-speeds displayed in the editor (`Vs0`, `Vs1`, `Vfe`, `Vno`, `Vne`, `Vglide`, `Vr`, `Vx`, `Vy`) will be unfamiliar to non-pilots or student pilots using the app. Simple HTML `title` attributes or `<abbr>` elements with explanatory text (e.g., "Vs0 — Stall speed in landing configuration") would help.
-
----
-
-### 4.8 Error Messages Are Generic — **LOW**
-
-Several pages use the pattern:
-
-```tsx
-<p className="text-center text-danger">{error}</p>
-<p className="text-center">
-  Please try again later, or if this persists, contact{" "}
-  <Link href="/contact">the site admin</Link>.
-</p>
-```
-
-The error message from the network fetch (`err.message`) is shown directly to the user. This can leak internal implementation details (stack traces, network error codes) in some failure scenarios. Error messages shown to users should be user-friendly and not expose internals.
+(See §3.2.) All numeric inputs in `ProfileEditor` and `GaugeDisplay` use `type="text"`. Switching to `type="number"` would improve mobile UX (numeric keypad) and provide browser-native validation.
 
 ---
 
-## 5. Summary: What Should Be Done Differently
+### 4.5 `ForkedFrom` Field Exists in the Data Model But Has No UI — **LOW** — ⚠️ OPEN
 
-| Area | Current Approach | Recommended Approach |
-|---|---|---|
-| Profile list API | Fetch all; filter client-side | Server-side filtering and pagination |
-| Password reset | 6-digit numeric code, no rate limiting | Token-in-URL link, rate limiting |
-| Conversion token | Stored as plaintext UUID | Stored as SHA-256 hash |
-| Auth endpoints | No CSRF protection | Verify `Origin` header or CSRF token |
-| Security headers | Missing CSP | Add strict CSP; add SRI to CDN resources |
-| Database operations | Separate operations, no transactions | MongoDB transactions for multi-step flows |
-| Architecture | Logic in API routes | Service layer between routes and data access |
-| ~~Seed script~~ | ~~Hardcoded credentials~~ | ✅ Fixed — file deleted, history purged |
-| Numeric inputs | `type="text"` | `type="number"` for numeric fields |
-| Field naming | PascalCase (legacy C#) | camelCase (JavaScript convention) |
-| Delete functionality | Not implemented | Add DELETE endpoint and UI |
-| Unsaved changes | No warning | `beforeunload` handler |
-| Unpublished profiles | Filtered client-side | Filtered server-side in MongoDB query |
+`Profile.ForkedFrom: string | null` is defined and populated as `null` in `createDefaultProfile()` but is never displayed or set by any UI code. Either implement the "Fork this profile" feature or remove the field until it is needed.
+
+---
+
+### 4.6 No Loading Skeleton or Spinner for Profile List — **LOW** — ⚠️ OPEN
+
+The profile list shows only `<h5>Loading...</h5>` while data is fetched. A skeleton loader would significantly improve perceived performance.
+
+> **Reference:** Google Web.dev – Skeleton screens.
+
+---
+
+### 4.7 V-Speed Labels Have No Tooltips or Explanations — **LOW** — ⚠️ OPEN
+
+The V-speed labels (`Vs0`, `Vs1`, `Vfe`, `Vno`, `Vne`, `Vglide`, `Vr`, `Vx`, `Vy`) will be unfamiliar to non-pilots. Simple `title` attributes or `<abbr>` elements with explanatory text would help.
+
+---
+
+### 4.8 Error Messages Are Generic — **LOW** — ⚠️ OPEN
+
+`err.message` from network fetches is shown directly to the user in several places. Error messages shown to users should be user-friendly and not expose internals.
+
+---
+
+## 5. Summary
+
+| # | Area | Status | Severity |
+|---|---|---|---|
+| 1.1 | Hardcoded credentials | ✅ FIXED (prior revision) | CRITICAL |
+| 1.2 | No rate limiting on auth endpoints | ⚠️ OPEN | HIGH |
+| 1.3 | Conversion token stored as plaintext | ✅ FIXED | HIGH |
+| 1.4 | Unpublished profiles accessible without auth | ✅ FIXED | HIGH |
+| 1.5 | No Content-Security-Policy header | ✅ FIXED | HIGH |
+| 1.6 | External CSS without Subresource Integrity | ✅ FIXED | MEDIUM |
+| 1.7 | No CSRF protection on custom API routes | ⚠️ OPEN | MEDIUM |
+| 1.8 | MongoDB connection failure not handled | ✅ FIXED | MEDIUM |
+| 1.9 | `NEXTAUTH_SECRET` not validated at startup | ✅ FIXED | MEDIUM |
+| 1.10 | No server-side schema validation on import | ⚠️ OPEN | MEDIUM |
+| 2.1 | All profiles fetched without pagination | ⚠️ OPEN | HIGH |
+| 2.2 | No database transactions on conversion flow | ⚠️ OPEN | HIGH |
+| 2.3 | No service layer | ⚠️ OPEN | MEDIUM |
+| 2.4 | PascalCase field names | ⚠️ OPEN | MEDIUM |
+| 2.5 | Dead code: `EditProfileContent.tsx` | ✅ FIXED | LOW |
+| 2.6 | Fake email writes to local filesystem | ⚠️ OPEN | LOW |
+| 2.7 | NextAuth v4 with Next.js 15+ | ⚠️ OPEN | LOW |
+| 3.1 | 6-digit reset code brute-forceable | ⚠️ OPEN | HIGH |
+| 3.2 | `Number(e.target.value) \|\| 0` mishandles empty input | ⚠️ OPEN | MEDIUM |
+| 3.3 | Unpublished profiles visible without auth | ✅ FIXED (= 1.4) | HIGH |
+| 3.4 | `cancelEdit` has no error handling | ✅ FIXED | MEDIUM |
+| 3.5 | Array index as React key | ⚠️ OPEN (low risk) | MEDIUM |
+| 3.6 | `skipped` counter never incremented | ✅ FIXED | LOW |
+| 3.7 | Malformed JSON returns 500 not 400 | ✅ FIXED | LOW |
+| 3.8 | `Profile.id` is `string \| null` | ⚠️ OPEN | LOW |
+| 4.1 | No delete functionality | ⚠️ OPEN | HIGH |
+| 4.2 | No warning on navigating away with unsaved changes | ✅ FIXED | HIGH |
+| 4.3 | Profile name field at bottom of edit form | ⚠️ OPEN | MEDIUM |
+| 4.4 | Numeric fields use `type="text"` | ⚠️ OPEN | MEDIUM |
+| 4.5 | `ForkedFrom` field has no UI | ⚠️ OPEN | LOW |
+| 4.6 | No loading skeleton for profile list | ⚠️ OPEN | LOW |
+| 4.7 | V-speed labels have no tooltips | ⚠️ OPEN | LOW |
+| 4.8 | Error messages are generic | ⚠️ OPEN | LOW |
 
 ---
 
@@ -534,3 +383,4 @@ The error message from the network fetch (`err.message`) is shown directly to th
 - NextAuth v4 documentation: https://next-auth.js.org/getting-started/introduction
 - Auth.js v5 (NextAuth v5): https://authjs.dev
 - Google Web.dev – Skeleton screens: https://web.dev/articles/ux-improvements-for-pwa#skeleton-screens
+
