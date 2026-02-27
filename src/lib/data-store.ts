@@ -1,5 +1,6 @@
 import { Profile, ProfileSummary } from "@/types";
 import { fixUpGauges } from "./profile-utils";
+import { toCamelCase, toPascalCase } from "./field-mapping";
 import { getDb } from "./mongodb";
 
 const COLLECTION = "profiles";
@@ -78,7 +79,7 @@ export async function getAllProfiles(params: ProfilesQueryParams = {}): Promise<
   ]);
 
   return {
-    profiles: docs as unknown as ProfileSummary[],
+    profiles: docs.map((d) => toCamelCase<ProfileSummary>(d)),
     total,
     page,
     limit,
@@ -91,7 +92,7 @@ export async function getProfile(id: string): Promise<Profile | null> {
 
   if (!doc) return null;
 
-  const profile = doc as unknown as Profile;
+  const profile = toCamelCase<Profile>(doc);
   fixUpGauges(profile);
   return profile;
 }
@@ -100,11 +101,15 @@ export async function upsertProfile(id: string, profile: Profile): Promise<void>
   const db = await getDb();
 
   profile.id = id;
-  profile.LastUpdated = new Date().toISOString();
+  profile.lastUpdated = new Date().toISOString();
+
+  const doc = toPascalCase<Record<string, unknown>>(profile);
+  // Preserve lowercase `id` in the document
+  doc.id = id;
 
   await db.collection(COLLECTION).updateOne(
     { id },
-    { $set: profile },
+    { $set: doc },
     { upsert: true }
   );
 }

@@ -18,18 +18,18 @@ export default function ProfileCard({ profile, isOwner }: ProfileCardProps) {
       style={{ cursor: "pointer" }}
       onClick={() => router.push(`/profile/${profile.id}`)}
     >
-      <div className={`card h-100 border-1 shadow-sm ${profile.IsPublished ? "" : "bg-mid"}`}>
+      <div className={`card h-100 border-1 shadow-sm ${profile.isPublished ? "" : "bg-mid"}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           className="card-img-top"
-          src={getAircraftTypeImage(profile.AircraftType)}
+          src={getAircraftTypeImage(profile.aircraftType)}
           alt="Simionic custom profile screen"
         />
         <div className="card-body p-4">
           <div className="container p-0 m-0">
             <div className="row p-0 m-0">
               <div className="col-8 p-0">
-                <h5 className="card-title mb-3">{profile.Name}</h5>
+                <h5 className="card-title mb-3">{profile.name}</h5>
               </div>
               <div className="col-4 p-0">
                 {isOwner && (
@@ -50,8 +50,8 @@ export default function ProfileCard({ profile, isOwner }: ProfileCardProps) {
           </div>
           <div>
             <p className="card-text mb-0">
-              <b>Aircraft type:</b> {profile.Engines === 2 ? "Twin " : "Single "}
-              {getAircraftTypeName(profile.AircraftType)}
+              <b>Aircraft type:</b> {profile.engines === 2 ? "Twin " : "Single "}
+              {getAircraftTypeName(profile.aircraftType)}
             </p>
           </div>
         </div>
@@ -60,8 +60,8 @@ export default function ProfileCard({ profile, isOwner }: ProfileCardProps) {
             <div className="d-flex align-items-center">
               <div className="small">
                 <div className="text">
-                  <b>By:</b> {profile.Owner?.Name ?? "Unknown"}
-                  {isOwner && !profile.IsPublished && (
+                  <b>By:</b> {profile.owner?.name ?? "Unknown"}
+                  {isOwner && !profile.isPublished && (
                     <>
                       <span className="text-black">&nbsp;|&nbsp;</span>
                       <span className="text-black-50 fw-bold">Draft</span>
@@ -69,7 +69,7 @@ export default function ProfileCard({ profile, isOwner }: ProfileCardProps) {
                   )}
                 </div>
                 <div className="text float-start">
-                  <b>Updated:</b> {new Date(profile.LastUpdated).toLocaleDateString()}
+                  <b>Updated:</b> {new Date(profile.lastUpdated).toLocaleDateString()}
                 </div>
               </div>
             </div>

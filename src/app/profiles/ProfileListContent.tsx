@@ -132,7 +132,7 @@ export default function ProfileListContent() {
                 <ProfileCard
                   key={profile.id}
                   profile={profile}
-                  isOwner={isLoggedIn && ownerId === profile.Owner?.Id}
+                  isOwner={isLoggedIn && ownerId === profile.owner?.id}
                 />
               ))}
             </div>

@@ -2,44 +2,44 @@ import { z } from "zod";
 
 const gaugeRangeSchema = z.object({
   id: z.string().optional(),
-  Colour: z.number().int().min(0).max(3),
-  Min: z.number(),
-  Max: z.number(),
-  AllowDecimals: z.boolean().optional(),
+  colour: z.number().int().min(0).max(3),
+  min: z.number(),
+  max: z.number(),
+  allowDecimals: z.boolean().optional(),
 }).strip();
 
 const gaugeSchema = z.object({
-  Name: z.string().max(200),
-  Min: z.number().nullable(),
-  Max: z.number().nullable(),
-  FuelInGallons: z.boolean().nullable().optional(),
-  CapacityForSingleTank: z.number().nullable().optional(),
-  TorqueInFootPounds: z.boolean().nullable().optional(),
-  MaxPower: z.number().nullable().optional(),
-  Ranges: z.array(gaugeRangeSchema).length(4),
-  AllowDecimals: z.boolean(),
+  name: z.string().max(200),
+  min: z.number().nullable(),
+  max: z.number().nullable(),
+  fuelInGallons: z.boolean().nullable().optional(),
+  capacityForSingleTank: z.number().nullable().optional(),
+  torqueInFootPounds: z.boolean().nullable().optional(),
+  maxPower: z.number().nullable().optional(),
+  ranges: z.array(gaugeRangeSchema).length(4),
+  allowDecimals: z.boolean(),
 }).strip();
 
 const ownerInfoSchema = z.object({
-  Id: z.string().nullable(),
-  Name: z.string().nullable(),
+  id: z.string().nullable(),
+  name: z.string().nullable(),
 }).strip();
 
 const settingRangeSchema = z.object({
-  Min: z.number(),
-  Max: z.number(),
+  min: z.number(),
+  max: z.number(),
 }).strip();
 
 const vacuumPSIRangeSchema = z.object({
-  Min: z.number(),
-  Max: z.number(),
-  GreenStart: z.number(),
-  GreenEnd: z.number(),
+  min: z.number(),
+  max: z.number(),
+  greenStart: z.number(),
+  greenEnd: z.number(),
 }).strip();
 
 const flapsRangeSchema = z.object({
-  Markings: z.array(z.string().nullable()).length(6),
-  Positions: z.array(z.number().nullable()).length(6),
+  markings: z.array(z.string().nullable()).length(6),
+  positions: z.array(z.number().nullable()).length(6),
 }).strip();
 
 const vspeedsSchema = z.object({
@@ -56,48 +56,48 @@ const vspeedsSchema = z.object({
 
 export const profileSchema = z.object({
   id: z.string().nullable(),
-  Owner: ownerInfoSchema,
-  LastUpdated: z.string(),
-  Name: z.string().min(1, "Profile name is required.").max(200, "Profile name must be 200 characters or fewer."),
-  AircraftType: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-  Engines: z.union([z.literal(1), z.literal(2)]),
-  IsPublished: z.boolean(),
-  Notes: z.string().max(2000, "Notes must be 2000 characters or fewer.").nullable(),
+  owner: ownerInfoSchema,
+  lastUpdated: z.string(),
+  name: z.string().min(1, "Profile name is required.").max(200, "Profile name must be 200 characters or fewer."),
+  aircraftType: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+  engines: z.union([z.literal(1), z.literal(2)]),
+  isPublished: z.boolean(),
+  notes: z.string().max(2000, "Notes must be 2000 characters or fewer.").nullable(),
 
   // Piston only
-  Cylinders: z.union([z.literal(4), z.literal(6)]),
-  FADEC: z.boolean(),
-  Turbocharged: z.boolean(),
-  ConstantSpeed: z.boolean(),
-  VacuumPSIRange: vacuumPSIRangeSchema,
-  ManifoldPressure: gaugeSchema,
-  CHT: gaugeSchema,
-  EGT: gaugeSchema,
-  TIT: gaugeSchema,
-  Load: gaugeSchema,
+  cylinders: z.union([z.literal(4), z.literal(6)]),
+  fadec: z.boolean(),
+  turbocharged: z.boolean(),
+  constantSpeed: z.boolean(),
+  vacuumPSIRange: vacuumPSIRangeSchema,
+  manifoldPressure: gaugeSchema,
+  cht: gaugeSchema,
+  egt: gaugeSchema,
+  tit: gaugeSchema,
+  load: gaugeSchema,
 
   // Turbo only
-  Torque: gaugeSchema,
-  NG: gaugeSchema,
+  torque: gaugeSchema,
+  ng: gaugeSchema,
 
   // Turbo + Jet
-  ITT: gaugeSchema,
+  itt: gaugeSchema,
 
   // Common to all
-  TemperaturesInFahrenheit: z.boolean(),
-  RPM: gaugeSchema,
-  Fuel: gaugeSchema,
-  FuelFlow: gaugeSchema,
-  OilPressure: gaugeSchema,
-  OilTemperature: gaugeSchema,
+  temperaturesInFahrenheit: z.boolean(),
+  rpm: gaugeSchema,
+  fuel: gaugeSchema,
+  fuelFlow: gaugeSchema,
+  oilPressure: gaugeSchema,
+  oilTemperature: gaugeSchema,
 
-  DisplayElevatorTrim: z.boolean(),
-  ElevatorTrimTakeOffRange: settingRangeSchema,
-  DisplayRudderTrim: z.boolean(),
-  RudderTrimTakeOffRange: settingRangeSchema,
-  DisplayFlapsIndicator: z.boolean(),
-  FlapsRange: flapsRangeSchema,
-  VSpeeds: vspeedsSchema,
+  displayElevatorTrim: z.boolean(),
+  elevatorTrimTakeOffRange: settingRangeSchema,
+  displayRudderTrim: z.boolean(),
+  rudderTrimTakeOffRange: settingRangeSchema,
+  displayFlapsIndicator: z.boolean(),
+  flapsRange: flapsRangeSchema,
+  vSpeeds: vspeedsSchema,
 }).strip();
 
 export type ValidatedProfile = z.infer<typeof profileSchema>;

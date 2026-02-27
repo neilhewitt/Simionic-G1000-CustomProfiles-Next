@@ -13,24 +13,24 @@ function generateId(): string {
 }
 
 export function fixUpGauges(profile: Profile): void {
-  profile.ManifoldPressure.AllowDecimals = true;
-  profile.FuelFlow.AllowDecimals = true;
-  profile.OilPressure.AllowDecimals = true;
+  profile.manifoldPressure.allowDecimals = true;
+  profile.fuelFlow.allowDecimals = true;
+  profile.oilPressure.allowDecimals = true;
 
-  fixRanges(profile.ManifoldPressure);
-  fixRanges(profile.FuelFlow);
-  fixRanges(profile.OilPressure);
+  fixRanges(profile.manifoldPressure);
+  fixRanges(profile.fuelFlow);
+  fixRanges(profile.oilPressure);
 
   // Ensure all gauge ranges have stable IDs (backfill for pre-existing profiles)
   const gaugeKeys: (keyof Profile)[] = [
-    "ManifoldPressure", "CHT", "EGT", "TIT", "Load",
-    "Torque", "NG", "ITT", "RPM", "Fuel", "FuelFlow",
-    "OilPressure", "OilTemperature",
+    "manifoldPressure", "cht", "egt", "tit", "load",
+    "torque", "ng", "itt", "rpm", "fuel", "fuelFlow",
+    "oilPressure", "oilTemperature",
   ];
   for (const key of gaugeKeys) {
     const gauge = profile[key] as Gauge;
-    if (gauge?.Ranges) {
-      for (const range of gauge.Ranges) {
+    if (gauge?.ranges) {
+      for (const range of gauge.ranges) {
         if (!range.id) {
           range.id = generateId();
         }
@@ -41,24 +41,24 @@ export function fixUpGauges(profile: Profile): void {
 
 function fixRanges(gauge: Gauge): void {
   for (let i = 0; i < 4; i++) {
-    gauge.Ranges[i].AllowDecimals = true;
+    gauge.ranges[i].allowDecimals = true;
   }
 }
 
 export function filterByPublished(profiles: ProfileSummary[]): ProfileSummary[] {
-  return profiles.filter((x) => x.IsPublished);
+  return profiles.filter((x) => x.isPublished);
 }
 
 export function filterByType(profiles: ProfileSummary[], type: AircraftType): ProfileSummary[] {
-  return profiles.filter((x) => x.AircraftType === type);
+  return profiles.filter((x) => x.aircraftType === type);
 }
 
 export function filterByEngineCount(profiles: ProfileSummary[], engines: number): ProfileSummary[] {
-  return profiles.filter((x) => x.Engines === engines);
+  return profiles.filter((x) => x.engines === engines);
 }
 
 export function filterByOwner(profiles: ProfileSummary[], ownerId: string): ProfileSummary[] {
-  return profiles.filter((x) => x.Owner?.Id != null && x.Owner.Id === ownerId);
+  return profiles.filter((x) => x.owner?.id != null && x.owner.id === ownerId);
 }
 
 export function filterBySearch(profiles: ProfileSummary[], searchTerms: string): ProfileSummary[] {
@@ -70,9 +70,9 @@ export function filterBySearch(profiles: ProfileSummary[], searchTerms: string):
     const lower = term.toLowerCase();
     output = output.filter(
       (x) =>
-        (x.Name && x.Name.toLowerCase().includes(lower)) ||
-        (x.Owner?.Name && x.Owner.Name.toLowerCase().includes(lower)) ||
-        AircraftType[x.AircraftType]?.toLowerCase().includes(lower)
+        (x.name && x.name.toLowerCase().includes(lower)) ||
+        (x.owner?.name && x.owner.name.toLowerCase().includes(lower)) ||
+        AircraftType[x.aircraftType]?.toLowerCase().includes(lower)
     );
   }
   return output;
@@ -91,16 +91,16 @@ export function filterProfiles(
 
   switch (published) {
     case PublishedStatus.Unpublished:
-      output = profiles.filter((x) => !x.IsPublished);
+      output = profiles.filter((x) => !x.isPublished);
       break;
     case PublishedStatus.PublishedOwner:
-      output = profiles.filter((x) => x.IsPublished || x.Owner?.Id === ownerId);
+      output = profiles.filter((x) => x.isPublished || x.owner?.id === ownerId);
       break;
     case PublishedStatus.UnpublishedOwner:
-      output = profiles.filter((x) => !x.IsPublished && x.Owner?.Id === ownerId);
+      output = profiles.filter((x) => !x.isPublished && x.owner?.id === ownerId);
       break;
     default:
-      output = profiles.filter((x) => x.IsPublished);
+      output = profiles.filter((x) => x.isPublished);
       break;
   }
 
@@ -110,7 +110,7 @@ export function filterProfiles(
   if (searchTerms != null) output = filterBySearch(output, searchTerms);
 
   return output.sort(
-    (a, b) => new Date(b.LastUpdated).getTime() - new Date(a.LastUpdated).getTime()
+    (a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
   );
 }
 
@@ -128,64 +128,64 @@ export function createDefaultGauge(
 ): Gauge {
   const ranges: GaugeRange[] = Array.from({ length: 4 }, () => ({
     id: generateId(),
-    Colour: RangeColour.None,
-    Min: 0,
-    Max: 0,
-    AllowDecimals: options.allowDecimals ?? false,
+    colour: RangeColour.None,
+    min: 0,
+    max: 0,
+    allowDecimals: options.allowDecimals ?? false,
   }));
 
   return {
-    Name: name,
-    Min: min,
-    Max: max,
-    FuelInGallons: options.fuelInGallons ?? null,
-    CapacityForSingleTank: options.capacityForSingleTank ?? null,
-    TorqueInFootPounds: options.torqueInFootPounds ?? null,
-    MaxPower: options.maxPower ?? null,
-    Ranges: ranges,
-    AllowDecimals: options.allowDecimals ?? false,
+    name: name,
+    min: min,
+    max: max,
+    fuelInGallons: options.fuelInGallons ?? null,
+    capacityForSingleTank: options.capacityForSingleTank ?? null,
+    torqueInFootPounds: options.torqueInFootPounds ?? null,
+    maxPower: options.maxPower ?? null,
+    ranges: ranges,
+    allowDecimals: options.allowDecimals ?? false,
   };
 }
 
 export function createDefaultProfile(): Profile {
   return {
     id: null,
-    Owner: { Id: null, Name: null },
-    LastUpdated: new Date().toISOString(),
-    Name: "New Profile",
-    AircraftType: AircraftType.Piston,
-    Engines: 1,
-    IsPublished: false,
-    Notes: null,
-    Cylinders: 4,
-    FADEC: false,
-    Turbocharged: false,
-    ConstantSpeed: false,
-    VacuumPSIRange: { Min: 0, Max: 0, GreenStart: 0, GreenEnd: 0 },
-    ManifoldPressure: createDefaultGauge("Manifold Pressure (inHg)", 0, 0, { allowDecimals: true }),
-    CHT: createDefaultGauge("CHT (\u00b0F)", 0, 0),
-    EGT: createDefaultGauge("EGT (\u00b0F)", 0, 0),
-    TIT: createDefaultGauge("TIT (\u00b0F)", 0, 0),
-    Load: createDefaultGauge("Load %"),
-    Torque: createDefaultGauge("Torque (FT-LB)", 0, 0, { torqueInFootPounds: true }),
-    NG: createDefaultGauge("NG (RPM%)", null, null),
-    ITT: createDefaultGauge("ITT (\u00b0F)", 0, 0),
-    TemperaturesInFahrenheit: true,
-    RPM: createDefaultGauge("RPM", null, 0),
-    Fuel: createDefaultGauge("Fuel", undefined, undefined, { fuelInGallons: true, capacityForSingleTank: 0 }),
-    FuelFlow: createDefaultGauge("Fuel Flow (GPH)", null, 0, { allowDecimals: true }),
-    OilPressure: createDefaultGauge("Oil Pressure (PSI)", null, 0, { allowDecimals: true }),
-    OilTemperature: createDefaultGauge("Oil Temp (\u00b0F)", 0, 0),
-    DisplayElevatorTrim: false,
-    ElevatorTrimTakeOffRange: { Min: 0, Max: 0 },
-    DisplayRudderTrim: false,
-    RudderTrimTakeOffRange: { Min: 0, Max: 0 },
-    DisplayFlapsIndicator: false,
-    FlapsRange: {
-      Markings: ["UP", null, null, null, null, "F"],
-      Positions: [0, null, null, null, null, 100],
+    owner: { id: null, name: null },
+    lastUpdated: new Date().toISOString(),
+    name: "New Profile",
+    aircraftType: AircraftType.Piston,
+    engines: 1,
+    isPublished: false,
+    notes: null,
+    cylinders: 4,
+    fadec: false,
+    turbocharged: false,
+    constantSpeed: false,
+    vacuumPSIRange: { min: 0, max: 0, greenStart: 0, greenEnd: 0 },
+    manifoldPressure: createDefaultGauge("Manifold Pressure (inHg)", 0, 0, { allowDecimals: true }),
+    cht: createDefaultGauge("CHT (\u00b0F)", 0, 0),
+    egt: createDefaultGauge("EGT (\u00b0F)", 0, 0),
+    tit: createDefaultGauge("TIT (\u00b0F)", 0, 0),
+    load: createDefaultGauge("Load %"),
+    torque: createDefaultGauge("Torque (FT-LB)", 0, 0, { torqueInFootPounds: true }),
+    ng: createDefaultGauge("NG (RPM%)", null, null),
+    itt: createDefaultGauge("ITT (\u00b0F)", 0, 0),
+    temperaturesInFahrenheit: true,
+    rpm: createDefaultGauge("RPM", null, 0),
+    fuel: createDefaultGauge("Fuel", undefined, undefined, { fuelInGallons: true, capacityForSingleTank: 0 }),
+    fuelFlow: createDefaultGauge("Fuel Flow (GPH)", null, 0, { allowDecimals: true }),
+    oilPressure: createDefaultGauge("Oil Pressure (PSI)", null, 0, { allowDecimals: true }),
+    oilTemperature: createDefaultGauge("Oil Temp (\u00b0F)", 0, 0),
+    displayElevatorTrim: false,
+    elevatorTrimTakeOffRange: { min: 0, max: 0 },
+    displayRudderTrim: false,
+    rudderTrimTakeOffRange: { min: 0, max: 0 },
+    displayFlapsIndicator: false,
+    flapsRange: {
+      markings: ["UP", null, null, null, null, "F"],
+      positions: [0, null, null, null, null, 100],
     },
-    VSpeeds: { Vs0: 0, Vs1: 0, Vfe: 0, Vno: 0, Vne: 0, Vglide: 0, Vr: 0, Vx: 0, Vy: 0 },
+    vSpeeds: { Vs0: 0, Vs1: 0, Vfe: 0, Vno: 0, Vne: 0, Vglide: 0, Vr: 0, Vx: 0, Vy: 0 },
   };
 }
 

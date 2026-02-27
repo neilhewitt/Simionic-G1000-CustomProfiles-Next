@@ -26,13 +26,13 @@ function ColourIndicator({
   editing,
   onChange,
 }: {
-  range: { Colour: RangeColour; Min: number; Max: number };
+  range: { colour: RangeColour; min: number; max: number };
   index: number;
   editing: boolean;
   onChange: (index: number, colour: RangeColour) => void;
 }) {
   const [showDropdown, setShowDropdown] = useState(false);
-  const colourName = getColourName(range.Colour);
+  const colourName = getColourName(range.colour);
 
   return (
     <div className="col">
@@ -81,17 +81,17 @@ export default function GaugeDisplay({
   }
 
   function updateRangeColour(index: number, colour: RangeColour) {
-    const newRanges = [...gauge.Ranges];
-    newRanges[index] = { ...newRanges[index], Colour: colour };
-    updateGauge({ Ranges: newRanges });
+    const newRanges = [...gauge.ranges];
+    newRanges[index] = { ...newRanges[index], colour: colour };
+    updateGauge({ ranges: newRanges });
   }
 
-  function updateRangeValue(index: number, field: "Min" | "Max", value: string) {
+  function updateRangeValue(index: number, field: "min" | "max", value: string) {
     const num = value === "" ? 0 : Number(value);
     if (isNaN(num)) return;
-    const newRanges = [...gauge.Ranges];
+    const newRanges = [...gauge.ranges];
     newRanges[index] = { ...newRanges[index], [field]: num };
-    updateGauge({ Ranges: newRanges });
+    updateGauge({ ranges: newRanges });
   }
 
   function isSelectedButton(active: boolean): string {
@@ -103,7 +103,7 @@ export default function GaugeDisplay({
       {/* Header row */}
       <div className="row justify-content-center">
         <div className={`${gaugeType === "NG" ? "col-12" : "col-3"} pt-2 pr-5`}>
-          <p className="text-black font-weight-bold">{gauge.Name}</p>
+          <p className="text-black font-weight-bold">{gauge.name}</p>
         </div>
 
         {gaugeType === "Fuel" && (
@@ -112,15 +112,15 @@ export default function GaugeDisplay({
               <div className="form-group">
                 <div className="btn-group">
                   <button
-                    className={`btn btn-medium ${isSelectedButton(!!gauge.FuelInGallons)} mt-1 mb-1 shadow-none`}
-                    onClick={() => editing && updateGauge({ FuelInGallons: true })}
+                    className={`btn btn-medium ${isSelectedButton(!!gauge.fuelInGallons)} mt-1 mb-1 shadow-none`}
+                    onClick={() => editing && updateGauge({ fuelInGallons: true })}
                     disabled={!editing}
                   >
                     Gal
                   </button>
                   <button
-                    className={`btn btn-medium ${isSelectedButton(!gauge.FuelInGallons)} mt-1 mb-1 shadow-none`}
-                    onClick={() => editing && updateGauge({ FuelInGallons: false })}
+                    className={`btn btn-medium ${isSelectedButton(!gauge.fuelInGallons)} mt-1 mb-1 shadow-none`}
+                    onClick={() => editing && updateGauge({ fuelInGallons: false })}
                     disabled={!editing}
                   >
                     Lb
@@ -136,8 +136,8 @@ export default function GaugeDisplay({
                     type="number"
                     step="1"
                     className="input-text ml-2 custom-profile-textbox"
-                    value={gauge.CapacityForSingleTank ?? ""}
-                    onChange={(e) => handleNumericChange("CapacityForSingleTank", e.target.value)}
+                    value={gauge.capacityForSingleTank ?? ""}
+                    onChange={(e) => handleNumericChange("capacityForSingleTank", e.target.value)}
                     disabled={!editing}
                   />
                 </label>
@@ -153,19 +153,19 @@ export default function GaugeDisplay({
                 Range
                 <input
                   type="number"
-                  step={gauge.AllowDecimals ? "any" : "1"}
+                  step={gauge.allowDecimals ? "any" : "1"}
                   className="input-text ml-2 custom-profile-textbox"
-                  value={gauge.Min ?? ""}
-                  onChange={(e) => handleNumericChange("Min", e.target.value)}
+                  value={gauge.min ?? ""}
+                  onChange={(e) => handleNumericChange("min", e.target.value)}
                   disabled={!editing}
                 />
                 <span>~</span>
                 <input
                   type="number"
-                  step={gauge.AllowDecimals ? "any" : "1"}
+                  step={gauge.allowDecimals ? "any" : "1"}
                   className="input-text custom-profile-textbox"
-                  value={gauge.Max ?? ""}
-                  onChange={(e) => handleNumericChange("Max", e.target.value)}
+                  value={gauge.max ?? ""}
+                  onChange={(e) => handleNumericChange("max", e.target.value)}
                   disabled={!editing}
                 />
               </label>
@@ -180,10 +180,10 @@ export default function GaugeDisplay({
                 Max
                 <input
                   type="number"
-                  step={gauge.AllowDecimals ? "any" : "1"}
+                  step={gauge.allowDecimals ? "any" : "1"}
                   className="input-text ml-2 custom-profile-textbox"
-                  value={gauge.Max ?? ""}
-                  onChange={(e) => handleNumericChange("Max", e.target.value)}
+                  value={gauge.max ?? ""}
+                  onChange={(e) => handleNumericChange("max", e.target.value)}
                   disabled={!editing}
                 />
               </label>
@@ -200,8 +200,8 @@ export default function GaugeDisplay({
                   type="number"
                   step="1"
                   className="input-text ml-2 custom-profile-textbox-wide"
-                  value={gauge.MaxPower ?? ""}
-                  onChange={(e) => handleNumericChange("MaxPower", e.target.value)}
+                  value={gauge.maxPower ?? ""}
+                  onChange={(e) => handleNumericChange("maxPower", e.target.value)}
                   disabled={!editing}
                 />
               </label>
@@ -219,8 +219,8 @@ export default function GaugeDisplay({
                     type="number"
                     step="any"
                     className="input-text ml-2 custom-profile-textbox"
-                    value={gauge.Min ?? ""}
-                    onChange={(e) => handleNumericChange("Min", e.target.value)}
+                    value={gauge.min ?? ""}
+                    onChange={(e) => handleNumericChange("min", e.target.value)}
                     disabled={!editing}
                   />
                   <span>~</span>
@@ -228,8 +228,8 @@ export default function GaugeDisplay({
                     type="number"
                     step="any"
                     className="input-text custom-profile-textbox"
-                    value={gauge.Max ?? ""}
-                    onChange={(e) => handleNumericChange("Max", e.target.value)}
+                    value={gauge.max ?? ""}
+                    onChange={(e) => handleNumericChange("max", e.target.value)}
                     disabled={!editing}
                   />
                 </label>
@@ -239,15 +239,15 @@ export default function GaugeDisplay({
               <div className="form-group">
                 <div className="btn-group">
                   <button
-                    className={`btn btn-medium ${isSelectedButton(!!gauge.TorqueInFootPounds)} mt-1 mb-1 shadow-none`}
-                    onClick={() => editing && updateGauge({ TorqueInFootPounds: true })}
+                    className={`btn btn-medium ${isSelectedButton(!!gauge.torqueInFootPounds)} mt-1 mb-1 shadow-none`}
+                    onClick={() => editing && updateGauge({ torqueInFootPounds: true })}
                     disabled={!editing}
                   >
                     Value
                   </button>
                   <button
-                    className={`btn btn-medium ${isSelectedButton(!gauge.TorqueInFootPounds)} mt-1 mb-1 shadow-none`}
-                    onClick={() => editing && updateGauge({ TorqueInFootPounds: false })}
+                    className={`btn btn-medium ${isSelectedButton(!gauge.torqueInFootPounds)} mt-1 mb-1 shadow-none`}
+                    onClick={() => editing && updateGauge({ torqueInFootPounds: false })}
                     disabled={!editing}
                   >
                     Percentage
@@ -261,7 +261,7 @@ export default function GaugeDisplay({
 
       {/* Colour indicator bars */}
       <div className="row justify-content-center mb-0">
-        {gauge.Ranges.map((range, i) => (
+        {gauge.ranges.map((range, i) => (
           <ColourIndicator
             key={range.id}
             range={range}
@@ -274,22 +274,22 @@ export default function GaugeDisplay({
 
       {/* Range value inputs */}
       <div className="row justify-content-center mb-5">
-        {gauge.Ranges.map((range, i) => (
+        {gauge.ranges.map((range, i) => (
           <div key={range.id} className="col">
             <input
               type="number"
-              step={range.AllowDecimals ? "any" : "1"}
+              step={range.allowDecimals ? "any" : "1"}
               className="input-text custom-profile-valuebox"
-              value={range.Min}
-              onChange={(e) => updateRangeValue(i, "Min", e.target.value)}
+              value={range.min}
+              onChange={(e) => updateRangeValue(i, "min", e.target.value)}
               disabled={!editing}
             />
             <input
               type="number"
-              step={range.AllowDecimals ? "any" : "1"}
+              step={range.allowDecimals ? "any" : "1"}
               className="input-text custom-profile-valuebox"
-              value={range.Max}
-              onChange={(e) => updateRangeValue(i, "Max", e.target.value)}
+              value={range.max}
+              onChange={(e) => updateRangeValue(i, "max", e.target.value)}
               disabled={!editing}
             />
           </div>

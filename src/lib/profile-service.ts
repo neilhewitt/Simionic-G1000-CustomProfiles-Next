@@ -55,11 +55,11 @@ export async function saveProfile(
   const profile = result.data as Profile;
 
   const existing = await getProfile(id);
-  if (existing && existing.Owner?.Id !== ownerId) {
+  if (existing && existing.owner?.id !== ownerId) {
     throw new ForbiddenError();
   }
 
-  profile.Owner = { Id: ownerId, Name: ownerName };
+  profile.owner = { id: ownerId, name: ownerName };
   await upsertProfile(id, profile);
 }
 
@@ -73,7 +73,7 @@ export async function deleteProfileById(
   if (!existing) {
     throw new NotFoundError("Profile not found");
   }
-  if (existing.Owner?.Id !== ownerId) {
+  if (existing.owner?.id !== ownerId) {
     throw new ForbiddenError();
   }
 

@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Profile } from "@/types";
+import { toCamelCase } from "@/lib/field-mapping";
 
 export default function ImportPage() {
   const { data: session } = useSession();
@@ -27,15 +28,17 @@ export default function ImportPage() {
 
     try {
       const text = await file.text();
-      const profile: Profile = JSON.parse(text);
+      const parsed = JSON.parse(text);
+      // Imported files from the iPad app use PascalCase; convert to camelCase
+      const profile: Profile = toCamelCase<Profile>(parsed);
 
       const newId = crypto.randomUUID();
       profile.id = newId;
-      profile.Owner = {
-        Id: ownerId,
-        Name: session?.user?.name ?? null,
+      profile.owner = {
+        id: ownerId,
+        name: session?.user?.name ?? null,
       };
-      profile.IsPublished = false;
+      profile.isPublished = false;
 
       const res = await fetch(`/api/profiles/${newId}`, {
         method: "POST",
