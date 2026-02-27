@@ -29,6 +29,11 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
     }
   }
 
+  function parseNum(value: string): number | null {
+    const num = value === "" ? 0 : Number(value);
+    return isNaN(num) ? null : num;
+  }
+
   function updateGauge(key: keyof Profile, gauge: Gauge) {
     update({ [key]: gauge });
   }
@@ -217,9 +222,9 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
           <div className="col-md-auto pt-1">
             <div className="form-group">
               <label className="form-label text-black font-weight-bold">
-                <input type="text" className="input-text ml-2 custom-profile-textbox" value={profile.VacuumPSIRange.Min} onChange={(e) => update({ VacuumPSIRange: { ...profile.VacuumPSIRange, Min: Number(e.target.value) || 0 } })} disabled={!editing} />
+                <input type="number" step="any" className="input-text ml-2 custom-profile-textbox" value={profile.VacuumPSIRange.Min} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ VacuumPSIRange: { ...profile.VacuumPSIRange, Min: n } }); }} disabled={!editing} />
                 <span>~</span>
-                <input type="text" className="input-text custom-profile-textbox" value={profile.VacuumPSIRange.Max} onChange={(e) => update({ VacuumPSIRange: { ...profile.VacuumPSIRange, Max: Number(e.target.value) || 0 } })} disabled={!editing} />
+                <input type="number" step="any" className="input-text custom-profile-textbox" value={profile.VacuumPSIRange.Max} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ VacuumPSIRange: { ...profile.VacuumPSIRange, Max: n } }); }} disabled={!editing} />
               </label>
             </div>
           </div>
@@ -227,9 +232,9 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
           <div className="col-md-auto pt-1">
             <div className="form-group">
               <label className="form-label text-black font-weight-bold">
-                <input type="text" className="input-text ml-2 custom-profile-textbox" value={profile.VacuumPSIRange.GreenStart} onChange={(e) => update({ VacuumPSIRange: { ...profile.VacuumPSIRange, GreenStart: Number(e.target.value) || 0 } })} disabled={!editing} />
+                <input type="number" step="any" className="input-text ml-2 custom-profile-textbox" value={profile.VacuumPSIRange.GreenStart} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ VacuumPSIRange: { ...profile.VacuumPSIRange, GreenStart: n } }); }} disabled={!editing} />
                 <span>~</span>
-                <input type="text" className="input-text ml-2 custom-profile-textbox" value={profile.VacuumPSIRange.GreenEnd} onChange={(e) => update({ VacuumPSIRange: { ...profile.VacuumPSIRange, GreenEnd: Number(e.target.value) || 0 } })} disabled={!editing} />
+                <input type="number" step="any" className="input-text ml-2 custom-profile-textbox" value={profile.VacuumPSIRange.GreenEnd} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ VacuumPSIRange: { ...profile.VacuumPSIRange, GreenEnd: n } }); }} disabled={!editing} />
               </label>
             </div>
           </div>
@@ -258,8 +263,8 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
           <div className="form-group mb-0">
             <label className={`form-label ${profile.DisplayElevatorTrim ? "text-black" : "text-muted"} font-weight-bold`}>
               T/O Range (0-100)
-              <input type="text" className="input-text ml-2 custom-profile-textbox" value={profile.ElevatorTrimTakeOffRange.Min} onChange={(e) => update({ ElevatorTrimTakeOffRange: { ...profile.ElevatorTrimTakeOffRange, Min: Number(e.target.value) || 0 } })} disabled={!editing || !profile.DisplayElevatorTrim} />
-              ~<input type="text" className="input-text ml-2 custom-profile-textbox" value={profile.ElevatorTrimTakeOffRange.Max} onChange={(e) => update({ ElevatorTrimTakeOffRange: { ...profile.ElevatorTrimTakeOffRange, Max: Number(e.target.value) || 0 } })} disabled={!editing || !profile.DisplayElevatorTrim} />
+              <input type="number" step="1" className="input-text ml-2 custom-profile-textbox" value={profile.ElevatorTrimTakeOffRange.Min} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ ElevatorTrimTakeOffRange: { ...profile.ElevatorTrimTakeOffRange, Min: n } }); }} disabled={!editing || !profile.DisplayElevatorTrim} />
+              ~<input type="number" step="1" className="input-text ml-2 custom-profile-textbox" value={profile.ElevatorTrimTakeOffRange.Max} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ ElevatorTrimTakeOffRange: { ...profile.ElevatorTrimTakeOffRange, Max: n } }); }} disabled={!editing || !profile.DisplayElevatorTrim} />
             </label>
           </div>
         </div>
@@ -277,8 +282,8 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
           <div className="form-group mb-0">
             <label className={`form-label ${profile.DisplayRudderTrim ? "text-black" : "text-muted"} font-weight-bold`}>
               T/O Range (0-100)
-              <input type="text" className="input-text ml-2 custom-profile-textbox" value={profile.RudderTrimTakeOffRange.Min} onChange={(e) => update({ RudderTrimTakeOffRange: { ...profile.RudderTrimTakeOffRange, Min: Number(e.target.value) || 0 } })} disabled={!editing || !profile.DisplayRudderTrim} />
-              ~<input type="text" className="input-text ml-2 custom-profile-textbox" value={profile.RudderTrimTakeOffRange.Max} onChange={(e) => update({ RudderTrimTakeOffRange: { ...profile.RudderTrimTakeOffRange, Max: Number(e.target.value) || 0 } })} disabled={!editing || !profile.DisplayRudderTrim} />
+              <input type="number" step="1" className="input-text ml-2 custom-profile-textbox" value={profile.RudderTrimTakeOffRange.Min} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ RudderTrimTakeOffRange: { ...profile.RudderTrimTakeOffRange, Min: n } }); }} disabled={!editing || !profile.DisplayRudderTrim} />
+              ~<input type="number" step="1" className="input-text ml-2 custom-profile-textbox" value={profile.RudderTrimTakeOffRange.Max} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ RudderTrimTakeOffRange: { ...profile.RudderTrimTakeOffRange, Max: n } }); }} disabled={!editing || !profile.DisplayRudderTrim} />
             </label>
           </div>
         </div>
@@ -356,10 +361,11 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
             </div>
             <div className="col-1 px-0">
               <input
-                type="text"
+                type="number"
+                step="1"
                 className="input-text ml-1 custom-profile-textbox"
                 value={profile.VSpeeds[key]}
-                onChange={(e) => update({ VSpeeds: { ...profile.VSpeeds, [key]: Number(e.target.value) || 0 } })}
+                onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ VSpeeds: { ...profile.VSpeeds, [key]: n } }); }}
                 disabled={!editing}
               />
             </div>
@@ -375,10 +381,11 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
             </div>
             <div className="col-1 px-0">
               <input
-                type="text"
+                type="number"
+                step="1"
                 className="input-text ml-1 custom-profile-textbox"
                 value={profile.VSpeeds[key]}
-                onChange={(e) => update({ VSpeeds: { ...profile.VSpeeds, [key]: Number(e.target.value) || 0 } })}
+                onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ VSpeeds: { ...profile.VSpeeds, [key]: n } }); }}
                 disabled={!editing}
               />
             </div>

@@ -75,6 +75,11 @@ export default function GaugeDisplay({
     }
   }
 
+  function handleNumericChange(field: keyof Gauge, value: string) {
+    const num = value === "" ? 0 : Number(value);
+    if (!isNaN(num)) updateGauge({ [field]: num });
+  }
+
   function updateRangeColour(index: number, colour: RangeColour) {
     const newRanges = [...gauge.Ranges];
     newRanges[index] = { ...newRanges[index], Colour: colour };
@@ -82,8 +87,10 @@ export default function GaugeDisplay({
   }
 
   function updateRangeValue(index: number, field: "Min" | "Max", value: string) {
+    const num = value === "" ? 0 : Number(value);
+    if (isNaN(num)) return;
     const newRanges = [...gauge.Ranges];
-    newRanges[index] = { ...newRanges[index], [field]: Number(value) || 0 };
+    newRanges[index] = { ...newRanges[index], [field]: num };
     updateGauge({ Ranges: newRanges });
   }
 
@@ -126,10 +133,11 @@ export default function GaugeDisplay({
                 <label className="form-label text-black font-weight-bold mt-1">
                   Capacity for a single tank{" "}
                   <input
-                    type="text"
+                    type="number"
+                    step="1"
                     className="input-text ml-2 custom-profile-textbox"
                     value={gauge.CapacityForSingleTank ?? ""}
-                    onChange={(e) => updateGauge({ CapacityForSingleTank: Number(e.target.value) || 0 })}
+                    onChange={(e) => handleNumericChange("CapacityForSingleTank", e.target.value)}
                     disabled={!editing}
                   />
                 </label>
@@ -144,18 +152,20 @@ export default function GaugeDisplay({
               <label className="form-label text-black font-weight-bold">
                 Range
                 <input
-                  type="text"
+                  type="number"
+                  step={gauge.AllowDecimals ? "any" : "1"}
                   className="input-text ml-2 custom-profile-textbox"
                   value={gauge.Min ?? ""}
-                  onChange={(e) => updateGauge({ Min: Number(e.target.value) || 0 })}
+                  onChange={(e) => handleNumericChange("Min", e.target.value)}
                   disabled={!editing}
                 />
                 <span>~</span>
                 <input
-                  type="text"
+                  type="number"
+                  step={gauge.AllowDecimals ? "any" : "1"}
                   className="input-text custom-profile-textbox"
                   value={gauge.Max ?? ""}
-                  onChange={(e) => updateGauge({ Max: Number(e.target.value) || 0 })}
+                  onChange={(e) => handleNumericChange("Max", e.target.value)}
                   disabled={!editing}
                 />
               </label>
@@ -169,10 +179,11 @@ export default function GaugeDisplay({
               <label className="form-label text-black font-weight-bold">
                 Max
                 <input
-                  type="text"
+                  type="number"
+                  step={gauge.AllowDecimals ? "any" : "1"}
                   className="input-text ml-2 custom-profile-textbox"
                   value={gauge.Max ?? ""}
-                  onChange={(e) => updateGauge({ Max: Number(e.target.value) || 0 })}
+                  onChange={(e) => handleNumericChange("Max", e.target.value)}
                   disabled={!editing}
                 />
               </label>
@@ -186,10 +197,11 @@ export default function GaugeDisplay({
               <label className="form-label text-black font-weight-bold">
                 Max power (watts)
                 <input
-                  type="text"
+                  type="number"
+                  step="1"
                   className="input-text ml-2 custom-profile-textbox-wide"
                   value={gauge.MaxPower ?? ""}
-                  onChange={(e) => updateGauge({ MaxPower: Number(e.target.value) || 0 })}
+                  onChange={(e) => handleNumericChange("MaxPower", e.target.value)}
                   disabled={!editing}
                 />
               </label>
@@ -204,18 +216,20 @@ export default function GaugeDisplay({
                 <label className="form-label text-black font-weight-bold">
                   Range
                   <input
-                    type="text"
+                    type="number"
+                    step="any"
                     className="input-text ml-2 custom-profile-textbox"
                     value={gauge.Min ?? ""}
-                    onChange={(e) => updateGauge({ Min: Number(e.target.value) || 0 })}
+                    onChange={(e) => handleNumericChange("Min", e.target.value)}
                     disabled={!editing}
                   />
                   <span>~</span>
                   <input
-                    type="text"
+                    type="number"
+                    step="any"
                     className="input-text custom-profile-textbox"
                     value={gauge.Max ?? ""}
-                    onChange={(e) => updateGauge({ Max: Number(e.target.value) || 0 })}
+                    onChange={(e) => handleNumericChange("Max", e.target.value)}
                     disabled={!editing}
                   />
                 </label>
@@ -263,14 +277,16 @@ export default function GaugeDisplay({
         {gauge.Ranges.map((range, i) => (
           <div key={range.id} className="col">
             <input
-              type="text"
+              type="number"
+              step={range.AllowDecimals ? "any" : "1"}
               className="input-text custom-profile-valuebox"
               value={range.Min}
               onChange={(e) => updateRangeValue(i, "Min", e.target.value)}
               disabled={!editing}
             />
             <input
-              type="text"
+              type="number"
+              step={range.AllowDecimals ? "any" : "1"}
               className="input-text custom-profile-valuebox"
               value={range.Max}
               onChange={(e) => updateRangeValue(i, "Max", e.target.value)}
