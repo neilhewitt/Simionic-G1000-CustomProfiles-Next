@@ -1,5 +1,6 @@
 import { getDb } from "./mongodb";
 import { randomUUID, randomBytes, createHash } from "crypto";
+import { ClientSession } from "mongodb";
 
 const RESET_COLLECTION = "password_reset_codes";
 const CONVERSION_COLLECTION = "conversion_tokens";
@@ -161,7 +162,8 @@ export async function findConversionToken(
  * already used (safe for retries).
  */
 export async function markConversionTokenUsed(
-  token: string
+  token: string,
+  session?: ClientSession
 ): Promise<boolean> {
   await ensureConversionIndexes();
   const db = await getDb();
@@ -170,8 +172,18 @@ export async function markConversionTokenUsed(
     .collection(CONVERSION_COLLECTION)
     .updateOne(
       { tokenHash: sha256(token), used: false },
-      { $set: { used: true } }
+      { $set: { used: true } },
+      { session }
     );
 
   return result.modifiedCount > 0;
+}
+
+/**
+ * Exported initialiser — called at startup via src/instrumentation.ts so that
+ * indexes are created once rather than lazily before each operation.
+ */
+export async function initTokenStore(): Promise<void> {
+  await ensureResetIndexes();
+  await ensureConversionIndexes();
 }

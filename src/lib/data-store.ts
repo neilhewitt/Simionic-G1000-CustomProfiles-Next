@@ -2,6 +2,7 @@ import { Profile, ProfileSummary } from "@/types";
 import { fixUpGauges } from "./profile-utils";
 import { toCamelCase, toPascalCase } from "./field-mapping";
 import { getDb } from "./mongodb";
+import { ClientSession } from "mongodb";
 
 const COLLECTION = "profiles";
 
@@ -129,12 +130,14 @@ export async function deleteProfile(id: string): Promise<boolean> {
 export async function updateProfileOwner(
   oldOwnerId: string,
   newOwnerId: string,
-  newOwnerName: string
+  newOwnerName: string,
+  session?: ClientSession
 ): Promise<number> {
   const db = await getDb();
   const result = await db.collection(COLLECTION).updateMany(
     { "Owner.Id": oldOwnerId },
-    { $set: { "Owner.Id": newOwnerId, "Owner.Name": newOwnerName } }
+    { $set: { "Owner.Id": newOwnerId, "Owner.Name": newOwnerName } },
+    { session }
   );
   return result.modifiedCount;
 }

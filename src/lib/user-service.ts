@@ -4,6 +4,7 @@ import { hashPassword } from "./password";
 import { getEmailService } from "./email";
 import { getOwnerId } from "./owner-id";
 import { updateProfileOwner } from "./data-store";
+import clientPromise from "./mongodb";
 
 export class ConflictError extends Error {
   constructor(message: string) {
@@ -131,30 +132,39 @@ export async function completeConversion(
   const oldOwnerId = getOwnerId(email);
   const passwordHash = await hashPassword(password);
 
-  // NOTE: The three operations below (createUserIdempotent, updateProfileOwner,
-  // markConversionTokenUsed) are not wrapped in a MongoDB transaction.
-  // A crash between steps can leave the system in an inconsistent state.
-  // To make this fully atomic, wrap all three in a session.withTransaction()
-  // call (requires a MongoDB replica set or Atlas cluster). The idempotent
-  // design of each individual operation mitigates the impact of partial
-  // failures and allows safe retries via the token-already-used check above.
-  const { user, created } = await createUserIdempotent(email, name.trim(), passwordHash);
+  // Wrap all three database operations in a MongoDB multi-document transaction
+  // so that a crash or partial failure cannot leave the system in an inconsistent
+  // state. Requires a replica set or Atlas cluster (not a standalone mongod).
+  const client = await clientPromise;
+  const dbSession = client.startSession();
+
+  // Use definite-assignment assertions: TypeScript cannot flow-analyse through
+  // async callbacks, but withTransaction guarantees the callback completes or
+  // throws before returning.
+  let user!: Awaited<ReturnType<typeof createUserIdempotent>>["user"];
+  let created!: boolean;
+  let migratedCount!: number;
+
+  try {
+    await dbSession.withTransaction(async () => {
+      const result = await createUserIdempotent(email, name.trim(), passwordHash, dbSession);
+      user = result.user;
+      created = result.created;
+
+      migratedCount = await updateProfileOwner(oldOwnerId, user.ownerId, user.name, dbSession);
+      await markConversionTokenUsed(token, dbSession);
+    });
+  } finally {
+    await dbSession.endSession();
+  }
 
   if (created) {
     console.info(`Conversion: created user (email=${email}, ownerId=${user.ownerId})`);
   } else {
     console.info(`Conversion: user already exists, proceeding (email=${email}, ownerId=${user.ownerId})`);
   }
-
-  const migratedCount = await updateProfileOwner(oldOwnerId, user.ownerId, user.name);
   console.info(`Conversion: migrated ${migratedCount} profile(s) (email=${email}, oldOwner=${oldOwnerId}, newOwner=${user.ownerId})`);
-
-  const tokenMarked = await markConversionTokenUsed(token);
-  if (tokenMarked) {
-    console.info(`Conversion: token marked used (email=${email})`);
-  } else {
-    console.info(`Conversion: token was already marked used (email=${email})`);
-  }
+  console.info(`Conversion: transaction committed (email=${email})`);
 
   return { message: "Account converted successfully.", profilesMigrated: migratedCount };
 }
