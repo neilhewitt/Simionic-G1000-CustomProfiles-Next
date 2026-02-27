@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function ForgotPasswordPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -33,15 +31,12 @@ export default function ForgotPasswordPage() {
               <div className="card bg-secondary text-white p-4 text-center">
                 <h3 className="mb-3">Check your email</h3>
                 <p className="text-light mb-4">
-                  If an account exists with that email address, a reset code has been sent.
-                  The code will expire in 15 minutes.
+                  If an account exists with that email address, a password reset link has been sent.
+                  The link will expire in 15 minutes.
                 </p>
-                <button
-                  className="btn btn-primary btn-lg w-100"
-                  onClick={() => router.push(`/auth/reset-password?email=${encodeURIComponent(email)}`)}
-                >
-                  Enter reset code
-                </button>
+                <Link href="/auth/signin" className="btn btn-primary btn-lg w-100">
+                  Back to sign in
+                </Link>
               </div>
             </div>
           </div>
@@ -58,7 +53,7 @@ export default function ForgotPasswordPage() {
             <div className="card bg-secondary text-white p-4">
               <h3 className="mb-3 text-center">Forgot password</h3>
               <p className="text-light mb-3">
-                Enter your email address and we&apos;ll send you a code to reset your password.
+                Enter your email address and we&apos;ll send you a link to reset your password.
               </p>
 
               <form onSubmit={handleSubmit}>
@@ -79,7 +74,7 @@ export default function ForgotPasswordPage() {
                   className="btn btn-primary btn-lg w-100"
                   disabled={loading}
                 >
-                  {loading ? "Sending..." : "Send reset code"}
+                  {loading ? "Sending..." : "Send reset link"}
                 </button>
               </form>
 
