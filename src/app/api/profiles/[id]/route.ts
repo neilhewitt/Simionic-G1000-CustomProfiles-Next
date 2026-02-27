@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProfile, upsertProfile, deleteProfile } from "@/lib/data-store";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { profileSchema } from "@/lib/profile-schema";
-import { Profile } from "@/types";
+import {
+  getProfileById,
+  saveProfile,
+  deleteProfileById,
+  NotFoundError,
+  ForbiddenError,
+  ValidationError,
+} from "@/lib/profile-service";
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function mapErrorToResponse(error: unknown): NextResponse {
+  if (error instanceof ValidationError) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+  if (error instanceof NotFoundError) {
+    return NextResponse.json({ error: error.message }, { status: 404 });
+  }
+  if (error instanceof ForbiddenError) {
+    return NextResponse.json({ error: error.message }, { status: 403 });
+  }
+  console.error("Unexpected error:", error);
+  return NextResponse.json({ error: "An unexpected error occurred." }, { status: 500 });
+}
 
 export async function GET(
   _request: NextRequest,
@@ -13,17 +30,10 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    if (!UUID_REGEX.test(id)) {
-      return NextResponse.json({ error: "Invalid profile ID" }, { status: 400 });
-    }
-    const profile = await getProfile(id);
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
+    const profile = await getProfileById(id);
     return NextResponse.json(profile);
   } catch (error) {
-    console.error("Failed to fetch profile:", error);
-    return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 });
+    return mapErrorToResponse(error);
   }
 }
 
@@ -38,9 +48,6 @@ export async function POST(
     }
 
     const { id } = await params;
-    if (!UUID_REGEX.test(id)) {
-      return NextResponse.json({ error: "Invalid profile ID" }, { status: 400 });
-    }
 
     let body: unknown;
     try {
@@ -49,30 +56,10 @@ export async function POST(
       return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
     }
 
-    // Server-side schema validation (strips unknown fields)
-    const result = profileSchema.safeParse(body);
-    if (!result.success) {
-      return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
-    }
-    const profile = result.data as Profile;
-
-    // Verify the caller owns the existing profile (if it already exists)
-    const existing = await getProfile(id);
-    if (existing && existing.Owner?.Id !== session.ownerId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    // Inject owner info from session (always trust the server, not the client)
-    profile.Owner = {
-      Id: session.ownerId ?? null,
-      Name: session.user.name ?? null,
-    };
-
-    await upsertProfile(id, profile);
+    await saveProfile(id, body, session.ownerId ?? "", session.user.name ?? null);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Failed to upsert profile:", error);
-    return NextResponse.json({ error: "Failed to save profile" }, { status: 500 });
+    return mapErrorToResponse(error);
   }
 }
 
@@ -87,25 +74,9 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    if (!UUID_REGEX.test(id)) {
-      return NextResponse.json({ error: "Invalid profile ID" }, { status: 400 });
-    }
-
-    const existing = await getProfile(id);
-    if (!existing) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
-    if (existing.Owner?.Id !== session.ownerId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const deleted = await deleteProfile(id);
-    if (!deleted) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
+    await deleteProfileById(id, session.ownerId ?? "");
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Failed to delete profile:", error);
-    return NextResponse.json({ error: "Failed to delete profile" }, { status: 500 });
+    return mapErrorToResponse(error);
   }
 }

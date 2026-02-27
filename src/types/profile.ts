@@ -46,8 +46,7 @@ export interface ProfileSummary {
   Notes: string | null;
 }
 
-export interface Profile {
-  id: string | null;
+interface BaseProfile {
   Owner: OwnerInfo;
   LastUpdated: string;
   Name: string;
@@ -91,3 +90,13 @@ export interface Profile {
   FlapsRange: FlapsRange;
   VSpeeds: VSpeeds;
 }
+
+export interface NewProfile extends BaseProfile {
+  id: null;
+}
+
+export interface SavedProfile extends BaseProfile {
+  id: string;
+}
+
+export type Profile = NewProfile | SavedProfile;
