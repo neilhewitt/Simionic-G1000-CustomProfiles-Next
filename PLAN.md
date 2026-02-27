@@ -36,7 +36,7 @@ This document lists every open issue from `CODE_REVIEW.md`, ordered from highest
 
 ---
 
-## Issue 2 — Server-Side Pagination for Profile Listing
+## Issue 2 — Server-Side Pagination for Profile Listing ✅
 
 **CODE_REVIEW ref:** §2.1 (HIGH)
 
@@ -51,11 +51,11 @@ This document lists every open issue from `CODE_REVIEW.md`, ordered from highest
 
 **Steps:**
 
-- [ ] **2a — Add query parameters to the API.** Modify `GET /api/profiles` to accept optional query parameters: `type` (0/1/2), `engines` (1/2), `search` (string), `owner` (ownerId), `page` (default 1), `limit` (default 20, max 100). Forward them to the data-store function.
-- [ ] **2b — Implement server-side filtering and pagination in `data-store.ts`.** Build the MongoDB filter object dynamically from the query parameters. Use `.skip((page - 1) * limit).limit(limit)` for pagination. Also run a parallel `.countDocuments(filter)` to return the total count.
-- [ ] **2c — Return paginated response shape.** The API response should be `{ profiles: ProfileSummary[], total: number, page: number, limit: number }` instead of a bare array.
-- [ ] **2d — Update `ProfileListContent.tsx`.** Replace the single `fetch("/api/profiles")` with a parameterised fetch that includes the current filter state. Add page navigation (Previous / Next buttons). Remove or reduce client-side filtering — the server now handles it.
-- [ ] **2e — Validate.** Test with different filter combinations and page numbers. Ensure backward compatibility if any other code calls `GET /api/profiles`.
+- [x] **2a — Add query parameters to the API.** Modify `GET /api/profiles` to accept optional query parameters: `type` (0/1/2), `engines` (1/2), `search` (string), `owner` (ownerId), `drafts` (boolean), `page` (default 1), `limit` (default 20, max 100). Forward them to the data-store function.
+- [x] **2b — Implement server-side filtering and pagination in `data-store.ts`.** Build the MongoDB filter object dynamically from the query parameters. Use `.skip((page - 1) * limit).limit(limit)` for pagination. Also run a parallel `.countDocuments(filter)` to return the total count.
+- [x] **2c — Return paginated response shape.** The API response should be `{ profiles: ProfileSummary[], total: number, page: number, limit: number }` instead of a bare array.
+- [x] **2d — Update `ProfileListContent.tsx`.** Replace the single `fetch("/api/profiles")` with a parameterised fetch that includes the current filter state. Add page navigation (Previous / Next buttons). Remove or reduce client-side filtering — the server now handles it.
+- [x] **2e — Validate.** Test with different filter combinations and page numbers. Ensure backward compatibility if any other code calls `GET /api/profiles`.
 
 ---
 

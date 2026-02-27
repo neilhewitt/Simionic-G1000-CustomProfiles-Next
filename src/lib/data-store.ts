@@ -4,29 +4,85 @@ import { getDb } from "./mongodb";
 
 const COLLECTION = "profiles";
 
-export async function getAllProfiles(): Promise<ProfileSummary[]> {
-  const db = await getDb();
-  const docs = await db
-    .collection(COLLECTION)
-    .find(
-      { IsPublished: true },
-      {
-        projection: {
-          _id: 0,
-          id: 1,
-          Owner: 1,
-          LastUpdated: 1,
-          Name: 1,
-          AircraftType: 1,
-          Engines: 1,
-          IsPublished: 1,
-          Notes: 1,
-        },
-      }
-    )
-    .toArray();
+export interface ProfilesQueryParams {
+  type?: number;
+  engines?: number;
+  search?: string;
+  owner?: string;
+  drafts?: boolean;
+  page?: number;
+  limit?: number;
+}
 
-  return docs as unknown as ProfileSummary[];
+export interface PaginatedProfiles {
+  profiles: ProfileSummary[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export async function getAllProfiles(params: ProfilesQueryParams = {}): Promise<PaginatedProfiles> {
+  const db = await getDb();
+  const page = Math.max(1, params.page ?? 1);
+  const limit = Math.min(100, Math.max(1, params.limit ?? 20));
+
+  const andConditions: Record<string, unknown>[] = [];
+
+  if (params.owner) {
+    if (params.drafts) {
+      andConditions.push({ IsPublished: false, "Owner.Id": params.owner });
+    } else {
+      andConditions.push({ $or: [{ IsPublished: true }, { "Owner.Id": params.owner }] });
+    }
+  } else {
+    andConditions.push({ IsPublished: true });
+  }
+
+  if (params.type !== undefined) andConditions.push({ AircraftType: params.type });
+  if (params.engines !== undefined) andConditions.push({ Engines: params.engines });
+
+  if (params.search?.trim()) {
+    for (const term of params.search.trim().split(/[\s,]+/).filter(Boolean)) {
+      andConditions.push({
+        $or: [
+          { Name: { $regex: term, $options: "i" } },
+          { "Owner.Name": { $regex: term, $options: "i" } },
+        ],
+      });
+    }
+  }
+
+  const filter = andConditions.length === 0 ? {} : andConditions.length === 1 ? andConditions[0] : { $and: andConditions };
+
+  const projection = {
+    _id: 0,
+    id: 1,
+    Owner: 1,
+    LastUpdated: 1,
+    Name: 1,
+    AircraftType: 1,
+    Engines: 1,
+    IsPublished: 1,
+    Notes: 1,
+  };
+
+  const [docs, total] = await Promise.all([
+    db
+      .collection(COLLECTION)
+      .find(filter, { projection })
+      .sort({ LastUpdated: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray(),
+    db.collection(COLLECTION).countDocuments(filter),
+  ]);
+
+  return {
+    profiles: docs as unknown as ProfileSummary[],
+    total,
+    page,
+    limit,
+  };
 }
 
 export async function getProfile(id: string): Promise<Profile | null> {
