@@ -49,10 +49,12 @@ function ColourIndicator({
 
   return (
     <div className="col" ref={dropdownRef}>
-      <div
-        className="profile-indicator"
-        role={editing ? "button" : undefined}
+      <button
+        type="button"
+        className="profile-indicator p-0 border-0 bg-transparent w-100"
         onClick={() => editing && setShowDropdown(!showDropdown)}
+        disabled={!editing}
+        aria-label={`Set range ${index + 1} colour`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -60,7 +62,7 @@ function ColourIndicator({
           alt={colourName}
           style={{ height: "125%", width: "100%", objectFit: "cover" }}
         />
-      </div>
+      </button>
       {editing && showDropdown && (
         <ul className="dropdown-menu show px-0 py-0 w100">
           <li><button type="button" className="profile-indicator none p-0 border-0 w-100" aria-label="None" onClick={() => { onChange(index, RangeColour.None); setShowDropdown(false); }} /></li>
@@ -80,6 +82,7 @@ export default function GaugeDisplay({
   editing = false,
   onChange,
 }: GaugeDisplayProps) {
+  const [rangeDrafts, setRangeDrafts] = useState<Record<string, { min?: string; max?: string }>>({});
   if (!gauge) return null;
 
   function updateGauge(updates: Partial<Gauge>) {
@@ -110,22 +113,44 @@ export default function GaugeDisplay({
   }
 
   function updateRangeValue(index: number, field: "min" | "max", value: string) {
+    const draftKey = gauge.ranges[index].id ?? String(index);
     if (value === "") {
-      // Don't update the model while the field is empty; coerce to 0 on blur instead
+      setRangeDrafts((prev) => ({ ...prev, [draftKey]: { ...(prev[draftKey] ?? {}), [field]: "" } }));
       return;
     }
     const num = Number(value);
     if (isNaN(num)) return;
+    setRangeDrafts((prev) => {
+      const current = { ...(prev[draftKey] ?? {}) };
+      delete current[field];
+      if (!current.min && !current.max) {
+        const rest = { ...prev };
+        delete rest[draftKey];
+        return rest;
+      }
+      return { ...prev, [draftKey]: current };
+    });
     const newRanges = [...gauge.ranges];
     newRanges[index] = { ...newRanges[index], [field]: num };
     updateGauge({ ranges: newRanges });
   }
 
   function handleRangeBlur(index: number, field: "min" | "max", value: string) {
+    const draftKey = gauge.ranges[index].id ?? String(index);
     if (value === "") {
       const newRanges = [...gauge.ranges];
       newRanges[index] = { ...newRanges[index], [field]: 0 };
       updateGauge({ ranges: newRanges });
+      setRangeDrafts((prev) => {
+        const current = { ...(prev[draftKey] ?? {}) };
+        delete current[field];
+        if (!current.min && !current.max) {
+          const rest = { ...prev };
+          delete rest[draftKey];
+          return rest;
+        }
+        return { ...prev, [draftKey]: current };
+      });
     }
   }
 
@@ -317,7 +342,7 @@ export default function GaugeDisplay({
               type="number"
               step={range.allowDecimals ? "any" : "1"}
               className="input-text custom-profile-valuebox"
-              value={range.min ?? ""}
+              value={rangeDrafts[range.id ?? String(i)]?.min ?? range.min ?? ""}
               onChange={(e) => updateRangeValue(i, "min", e.target.value)}
               onBlur={(e) => handleRangeBlur(i, "min", e.target.value)}
               disabled={!editing}
@@ -326,7 +351,7 @@ export default function GaugeDisplay({
               type="number"
               step={range.allowDecimals ? "any" : "1"}
               className="input-text custom-profile-valuebox"
-              value={range.max ?? ""}
+              value={rangeDrafts[range.id ?? String(i)]?.max ?? range.max ?? ""}
               onChange={(e) => updateRangeValue(i, "max", e.target.value)}
               onBlur={(e) => handleRangeBlur(i, "max", e.target.value)}
               disabled={!editing}
