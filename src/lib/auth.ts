@@ -19,15 +19,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (typeof credentials?.email !== "string" || typeof credentials?.password !== "string") return null;
+        if (!credentials.email || !credentials.password) return null;
 
-        const email = credentials.email as string;
-        const password = credentials.password as string;
-
-        const user = await findUserByEmail(email);
+        const user = await findUserByEmail(credentials.email);
         if (!user) return null;
 
-        const valid = await verifyPassword(user.passwordHash, password);
+        const valid = await verifyPassword(user.passwordHash, credentials.password);
         if (!valid) return null;
 
         return {
@@ -47,8 +45,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      if (token.ownerId) {
-        session.ownerId = token.ownerId as string;
+      if (typeof token.ownerId === "string") {
+        session.ownerId = token.ownerId;
       }
       return session;
     },
