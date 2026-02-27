@@ -8,6 +8,7 @@ import { Profile } from "@/types";
 import ProfileEditor from "@/components/ProfileEditor";
 import { exportProfileAsJson } from "@/lib/export";
 import { createDefaultProfile } from "@/lib/profile-utils";
+import { getUserFriendlyError } from "@/lib/error-utils";
 
 export default function ProfilePageContent() {
   const { data: session } = useSession();
@@ -61,7 +62,7 @@ export default function ProfilePageContent() {
             setEditing(true);
           }
         })
-        .catch((err) => setError(err.message));
+        .catch((err) => setError(getUserFriendlyError(err)));
     }
   }, [id, isNew, isLoggedIn, ownerId, session?.user?.name, searchParams]);
 
@@ -111,7 +112,7 @@ export default function ProfilePageContent() {
       router.replace(`/profile/${profileId}`);
     } catch (err) {
       setSaving(false);
-      setError(err instanceof Error ? err.message : "Failed to save");
+      setError(getUserFriendlyError(err));
     }
   }, [profile, saving, showSaveConfirm, router]);
 
@@ -124,7 +125,7 @@ export default function ProfilePageContent() {
       router.push("/profiles");
     } catch (err) {
       setDeleting(false);
-      setError(err instanceof Error ? err.message : "Failed to delete");
+      setError(getUserFriendlyError(err));
     }
   }
 
@@ -149,7 +150,7 @@ export default function ProfilePageContent() {
         setProfile(data);
         setEditing(false);
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => setError(getUserFriendlyError(err)));
   }
 
   function getSaveButtonText() {
@@ -260,15 +261,8 @@ export default function ProfilePageContent() {
                 </div>
               )}
 
-              {/* Gauge editor / display */}
-              <ProfileEditor
-                profile={profile}
-                editing={editing}
-                onChange={editing ? setProfile : undefined}
-              />
-
-              {/* Profile name + bottom save bar */}
-              <div className="d-flex flex-wrap align-items-center gap-3 mt-4">
+              {/* Profile name (above the editor) */}
+              <div className="d-flex flex-wrap align-items-center gap-3 mb-4">
                 <label className="fw-bold">
                   Profile name{" "}
                   <input
@@ -281,25 +275,34 @@ export default function ProfilePageContent() {
                     disabled={!editing}
                   />
                 </label>
-                {editing && (
-                  <>
-                    <button
-                      className={`btn btn-sm ${saving || saved ? "btn-secondary opacity-50" : "btn-success"}`}
-                      onClick={save}
-                      disabled={saving || saved}
-                    >
-                      {getSaveButtonText()}
-                    </button>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={cancelEdit}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </button>
-                  </>
-                )}
               </div>
+
+              {/* Gauge editor / display */}
+              <ProfileEditor
+                profile={profile}
+                editing={editing}
+                onChange={editing ? setProfile : undefined}
+              />
+
+              {/* Bottom save bar */}
+              {editing && (
+                <div className="d-flex flex-wrap align-items-center gap-3 mt-4">
+                  <button
+                    className={`btn btn-sm ${saving || saved ? "btn-secondary opacity-50" : "btn-success"}`}
+                    onClick={save}
+                    disabled={saving || saved}
+                  >
+                    {getSaveButtonText()}
+                  </button>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={cancelEdit}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </>

@@ -4,6 +4,18 @@ import { Fragment } from "react";
 import { Profile, AircraftType, Gauge } from "@/types";
 import GaugeDisplay from "./GaugeDisplay";
 
+const vspeedTooltips: Record<string, string> = {
+  Vs0: "Stall speed in landing configuration (flaps down)",
+  Vs1: "Stall speed in clean configuration (flaps up)",
+  Vfe: "Maximum flap extended speed",
+  Vno: "Maximum structural cruising speed",
+  Vne: "Never exceed speed",
+  Vglide: "Best glide speed",
+  Vr: "Rotation speed",
+  Vx: "Best angle of climb speed",
+  Vy: "Best rate of climb speed",
+};
+
 interface ProfileEditorProps {
   profile: Profile;
   editing: boolean;
@@ -340,7 +352,7 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
         {(["Vs0", "Vs1", "Vfe", "Vno", "Vne"] as const).map((key) => (
           <Fragment key={key}>
             <div className="col-1 text-end pr-1">
-              <label className="form-label text-black font-weight-bold mb-0 mt-1">{key}</label>
+              <abbr className="form-label text-black font-weight-bold mb-0 mt-1" title={vspeedTooltips[key]} style={{ textDecoration: "none" }}>{key}</abbr>
             </div>
             <div className="col-1 px-0">
               <input
@@ -359,7 +371,7 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
         {(["Vglide", "Vr", "Vx", "Vy"] as const).map((key) => (
           <Fragment key={key}>
             <div className="col-1 text-end pr-1">
-              <label className="form-label text-black font-weight-bold mb-0 mt-1">{key === "Vglide" ? "Vg" : key}</label>
+              <abbr className="form-label text-black font-weight-bold mb-0 mt-1" title={vspeedTooltips[key]} style={{ textDecoration: "none" }}>{key === "Vglide" ? "Vg" : key}</abbr>
             </div>
             <div className="col-1 px-0">
               <input

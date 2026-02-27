@@ -249,7 +249,7 @@ export default function GaugeDisplay({
       <div className="row justify-content-center mb-0">
         {gauge.Ranges.map((range, i) => (
           <ColourIndicator
-            key={i}
+            key={range.id}
             range={range}
             index={i}
             editing={editing}
@@ -261,7 +261,7 @@ export default function GaugeDisplay({
       {/* Range value inputs */}
       <div className="row justify-content-center mb-5">
         {gauge.Ranges.map((range, i) => (
-          <div key={i} className="col">
+          <div key={range.id} className="col">
             <input
               type="text"
               className="input-text custom-profile-valuebox"

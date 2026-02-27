@@ -1,5 +1,6 @@
 import { EmailService } from "./types";
 import { writeFile, mkdir } from "fs/promises";
+import { tmpdir } from "os";
 import path from "path";
 import sanitize from "sanitize-filename";
 
@@ -12,7 +13,7 @@ export class FakeEmailService implements EmailService {
     console.log("=== END EMAIL ===");
 
     try {
-      const dir = path.join(process.cwd(), "email");
+      const dir = path.join(tmpdir(), "simionic-emails");
       await mkdir(dir, { recursive: true });
       const safeTo = sanitize(to) || "recipient";
       const filename = `${Date.now()}-${safeTo.replace(/[^a-zA-Z0-9]/g, "_")}.txt`;

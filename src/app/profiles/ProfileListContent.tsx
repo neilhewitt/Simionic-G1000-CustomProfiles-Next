@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ProfileSummary, AircraftType } from "@/types";
 import ProfileCard from "@/components/ProfileCard";
 import ProfileFilters from "@/components/ProfileFilters";
+import { getUserFriendlyError } from "@/lib/error-utils";
 
 interface PaginatedProfiles {
   profiles: ProfileSummary[];
@@ -49,7 +50,7 @@ export default function ProfileListContent() {
         setData(result);
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(getUserFriendlyError(err));
       }
     }
 

@@ -55,7 +55,6 @@ export interface Profile {
   Engines: number;
   IsPublished: boolean;
   Notes: string | null;
-  ForkedFrom: string | null;
 
   // Piston only
   Cylinders: number;

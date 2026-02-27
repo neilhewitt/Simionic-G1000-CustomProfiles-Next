@@ -8,6 +8,10 @@ import {
   GaugeRange,
 } from "@/types";
 
+function generateId(): string {
+  return crypto.randomUUID();
+}
+
 export function fixUpGauges(profile: Profile): void {
   profile.ManifoldPressure.AllowDecimals = true;
   profile.FuelFlow.AllowDecimals = true;
@@ -16,6 +20,23 @@ export function fixUpGauges(profile: Profile): void {
   fixRanges(profile.ManifoldPressure);
   fixRanges(profile.FuelFlow);
   fixRanges(profile.OilPressure);
+
+  // Ensure all gauge ranges have stable IDs (backfill for pre-existing profiles)
+  const gaugeKeys: (keyof Profile)[] = [
+    "ManifoldPressure", "CHT", "EGT", "TIT", "Load",
+    "Torque", "NG", "ITT", "RPM", "Fuel", "FuelFlow",
+    "OilPressure", "OilTemperature",
+  ];
+  for (const key of gaugeKeys) {
+    const gauge = profile[key] as Gauge;
+    if (gauge?.Ranges) {
+      for (const range of gauge.Ranges) {
+        if (!range.id) {
+          range.id = generateId();
+        }
+      }
+    }
+  }
 }
 
 function fixRanges(gauge: Gauge): void {
@@ -106,6 +127,7 @@ export function createDefaultGauge(
   } = {}
 ): Gauge {
   const ranges: GaugeRange[] = Array.from({ length: 4 }, () => ({
+    id: generateId(),
     Colour: RangeColour.None,
     Min: 0,
     Max: 0,
@@ -135,7 +157,6 @@ export function createDefaultProfile(): Profile {
     Engines: 1,
     IsPublished: false,
     Notes: null,
-    ForkedFrom: null,
     Cylinders: 4,
     FADEC: false,
     Turbocharged: false,
