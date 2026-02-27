@@ -6,7 +6,7 @@ This document lists every open issue from `CODE_REVIEW.md`, ordered from highest
 
 ---
 
-## Issue 1 — Rate Limiting on Auth Endpoints + Stronger Reset Token
+## Issue 1 — Rate Limiting on Auth Endpoints + Stronger Reset Token ✅
 
 **CODE_REVIEW refs:** §1.2 (HIGH), §3.1 (HIGH)
 
@@ -32,7 +32,7 @@ This document lists every open issue from `CODE_REVIEW.md`, ordered from highest
 - [x] **1d — Update forgot-password email template** to include a clickable reset link (`${APP_URL}/auth/reset-password?token=<token>&email=<email>`) instead of a 6-digit code.
 - [x] **1e — Update the reset-password page** (`src/app/auth/reset-password/page.tsx`) to read the token and email from URL search params and remove the "enter your 6-digit code" input field. The page should still show a new-password form and POST `{ email, token, password }` to the API.
 - [x] **1f — Update `verifyResetCode`** to accept a token string of arbitrary length (no functional change needed if it already SHA-256 hashes the input).
-- [ ] **1g — Validate.** Manually test: rate limit triggers on repeated requests; reset link works end to end; old 6-digit code flow is removed.
+- [x] **1g — Validate.** Manually test: rate limit triggers on repeated requests; reset link works end to end; old 6-digit code flow is removed.
 
 ---
 
