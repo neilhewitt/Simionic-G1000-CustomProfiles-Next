@@ -69,14 +69,27 @@ export function rateLimit(
 /**
  * Extract a best-effort client IP from a Next.js request.
  *
- * DEPLOYMENT REQUIREMENT: This function trusts the `x-forwarded-for` header,
- * which can be spoofed by clients unless the app is deployed behind a trusted
- * reverse proxy (e.g. Vercel, Cloudflare, or an Nginx/ALB proxy) that strips
- * or overwrites the header before it reaches the application. Ensure the
- * infrastructure is configured accordingly, or rate limiting can be bypassed
- * by rotating spoofed header values.
+ * DEPLOYMENT REQUIREMENT: Set the `TRUST_PROXY=true` environment variable only
+ * when the app is deployed behind a trusted reverse proxy (e.g. Vercel,
+ * Cloudflare, or an Nginx/ALB proxy) that strips or overwrites the
+ * `x-forwarded-for` header before it reaches the application. Without a
+ * trusted proxy, an attacker can bypass rate limiting by rotating spoofed
+ * header values with each request.
+ *
+ * When `TRUST_PROXY` is not set to `"true"`, the function returns `"unknown"`,
+ * which causes all unauthenticated requests to share the same rate-limit
+ * bucket — a safe default that avoids IP-spoofing bypass.
+ *
+ * @param request     The incoming Next.js request.
+ * @param trustProxy  Whether to trust proxy headers. Defaults to the value of
+ *                    the `TRUST_PROXY` environment variable.
  */
-export function getClientIp(request: Request): string {
+export function getClientIp(
+  request: Request,
+  trustProxy = process.env.TRUST_PROXY === "true"
+): string {
+  if (!trustProxy) return "unknown";
+
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   if (forwarded) return forwarded;
 

@@ -1,6 +1,6 @@
 import { getDb } from "./mongodb";
 import { randomUUID } from "crypto";
-import { MongoServerError } from "mongodb";
+import { MongoServerError, ClientSession } from "mongodb";
 
 const COLLECTION = "users";
 
@@ -50,7 +50,8 @@ export async function createUser(
 export async function createUserIdempotent(
   email: string,
   name: string,
-  passwordHash: string
+  passwordHash: string,
+  session?: ClientSession
 ): Promise<{ user: User; created: boolean }> {
   await ensureIndexes();
   const db = await getDb();
@@ -64,12 +65,14 @@ export async function createUserIdempotent(
   };
 
   try {
-    await db.collection(COLLECTION).insertOne(user);
+    await db.collection(COLLECTION).insertOne(user, { session });
     return { user, created: true };
   } catch (err) {
     // Duplicate key error code 11000 on the unique email index
     if (err instanceof MongoServerError && err.code === 11000) {
-      const existing = await findUserByEmail(normalizedEmail);
+      const existing = await db
+        .collection(COLLECTION)
+        .findOne({ email: normalizedEmail }, { session }) as unknown as User | null;
       if (!existing) {
         throw new Error(
           `Duplicate key error on email "${normalizedEmail}" but user not found on re-read`
@@ -79,6 +82,14 @@ export async function createUserIdempotent(
     }
     throw err;
   }
+}
+
+/**
+ * Exported initialiser — called at startup via src/instrumentation.ts so that
+ * indexes are created once rather than lazily before each operation.
+ */
+export async function initUserStore(): Promise<void> {
+  await ensureIndexes();
 }
 
 export async function findUserByEmail(

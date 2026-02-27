@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { useState } from "react";
 import { Profile, AircraftType, Gauge } from "@/types";
 import GaugeDisplay from "./GaugeDisplay";
 
@@ -23,15 +23,35 @@ interface ProfileEditorProps {
 }
 
 export default function ProfileEditor({ profile, editing, onChange }: ProfileEditorProps) {
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+
   function update(updates: Partial<Profile>) {
     if (onChange) {
       onChange({ ...profile, ...updates });
     }
   }
 
-  function parseNum(value: string): number | null {
-    const num = value === "" ? 0 : Number(value);
-    return isNaN(num) ? null : num;
+  function handleNumericChange(key: string, value: string, applyUpdate: (n: number) => void) {
+    if (value === "") {
+      setDrafts((prev) => ({ ...prev, [key]: "" }));
+      return;
+    }
+    const n = Number(value);
+    if (!isNaN(n)) {
+      setDrafts((prev) => { const next = { ...prev }; delete next[key]; return next; });
+      applyUpdate(n);
+    }
+  }
+
+  function handleNumericBlur(key: string, applyUpdate: (n: number) => void) {
+    if (Object.prototype.hasOwnProperty.call(drafts, key)) {
+      setDrafts((prev) => { const next = { ...prev }; delete next[key]; return next; });
+      applyUpdate(0);
+    }
+  }
+
+  function numVal(key: string, profileValue: number): string | number {
+    return Object.prototype.hasOwnProperty.call(drafts, key) ? drafts[key] : profileValue;
   }
 
   function updateGauge(key: keyof Profile, gauge: Gauge) {
@@ -217,14 +237,14 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
       {/* Vacuum PSI - Piston only */}
       {profile.aircraftType === AircraftType.Piston && (
         <div className="row mb-5">
-          <div className="col-2 pt-2 pr-5"><p className="text-black font-weight-bold">Vacuum (PSI)</p></div>
-          <div className="col-md-auto pt-2 pr-1"><p className="text-black font-weight-bold">Range</p></div>
+          <div className="col-12 col-md-2 pt-2 pr-5"><p className="text-black font-weight-bold">Vacuum (PSI)</p></div>
+          <div className="col-12 col-md-auto pt-2 pr-1"><p className="text-black font-weight-bold">Range</p></div>
           <div className="col-md-auto pt-1">
             <div className="form-group">
               <label className="form-label text-black font-weight-bold">
-                <input type="number" step="any" className="input-text ml-2 custom-profile-textbox" value={profile.vacuumPSIRange.min} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ vacuumPSIRange: { ...profile.vacuumPSIRange, min: n } }); }} disabled={!editing} />
+                <input type="number" step="any" className="input-text ml-2 custom-profile-textbox" value={numVal("vacuumPSI.min", profile.vacuumPSIRange.min)} onChange={(e) => handleNumericChange("vacuumPSI.min", e.target.value, (n) => update({ vacuumPSIRange: { ...profile.vacuumPSIRange, min: n } }))} onBlur={() => handleNumericBlur("vacuumPSI.min", (n) => update({ vacuumPSIRange: { ...profile.vacuumPSIRange, min: n } }))} disabled={!editing} />
                 <span>~</span>
-                <input type="number" step="any" className="input-text custom-profile-textbox" value={profile.vacuumPSIRange.max} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ vacuumPSIRange: { ...profile.vacuumPSIRange, max: n } }); }} disabled={!editing} />
+                <input type="number" step="any" className="input-text custom-profile-textbox" value={numVal("vacuumPSI.max", profile.vacuumPSIRange.max)} onChange={(e) => handleNumericChange("vacuumPSI.max", e.target.value, (n) => update({ vacuumPSIRange: { ...profile.vacuumPSIRange, max: n } }))} onBlur={() => handleNumericBlur("vacuumPSI.max", (n) => update({ vacuumPSIRange: { ...profile.vacuumPSIRange, max: n } }))} disabled={!editing} />
               </label>
             </div>
           </div>
@@ -232,9 +252,9 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
           <div className="col-md-auto pt-1">
             <div className="form-group">
               <label className="form-label text-black font-weight-bold">
-                <input type="number" step="any" className="input-text ml-2 custom-profile-textbox" value={profile.vacuumPSIRange.greenStart} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ vacuumPSIRange: { ...profile.vacuumPSIRange, greenStart: n } }); }} disabled={!editing} />
+                <input type="number" step="any" className="input-text ml-2 custom-profile-textbox" value={numVal("vacuumPSI.greenStart", profile.vacuumPSIRange.greenStart)} onChange={(e) => handleNumericChange("vacuumPSI.greenStart", e.target.value, (n) => update({ vacuumPSIRange: { ...profile.vacuumPSIRange, greenStart: n } }))} onBlur={() => handleNumericBlur("vacuumPSI.greenStart", (n) => update({ vacuumPSIRange: { ...profile.vacuumPSIRange, greenStart: n } }))} disabled={!editing} />
                 <span>~</span>
-                <input type="number" step="any" className="input-text ml-2 custom-profile-textbox" value={profile.vacuumPSIRange.greenEnd} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ vacuumPSIRange: { ...profile.vacuumPSIRange, greenEnd: n } }); }} disabled={!editing} />
+                <input type="number" step="any" className="input-text ml-2 custom-profile-textbox" value={numVal("vacuumPSI.greenEnd", profile.vacuumPSIRange.greenEnd)} onChange={(e) => handleNumericChange("vacuumPSI.greenEnd", e.target.value, (n) => update({ vacuumPSIRange: { ...profile.vacuumPSIRange, greenEnd: n } }))} onBlur={() => handleNumericBlur("vacuumPSI.greenEnd", (n) => update({ vacuumPSIRange: { ...profile.vacuumPSIRange, greenEnd: n } }))} disabled={!editing} />
               </label>
             </div>
           </div>
@@ -263,8 +283,8 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
           <div className="form-group mb-0">
             <label className={`form-label ${profile.displayElevatorTrim ? "text-black" : "text-muted"} font-weight-bold`}>
               T/O Range (0-100)
-              <input type="number" step="1" className="input-text ml-2 custom-profile-textbox" value={profile.elevatorTrimTakeOffRange.min} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ elevatorTrimTakeOffRange: { ...profile.elevatorTrimTakeOffRange, min: n } }); }} disabled={!editing || !profile.displayElevatorTrim} />
-              ~<input type="number" step="1" className="input-text ml-2 custom-profile-textbox" value={profile.elevatorTrimTakeOffRange.max} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ elevatorTrimTakeOffRange: { ...profile.elevatorTrimTakeOffRange, max: n } }); }} disabled={!editing || !profile.displayElevatorTrim} />
+              <input type="number" step="1" className="input-text ml-2 custom-profile-textbox" value={numVal("elevatorTrim.min", profile.elevatorTrimTakeOffRange.min)} onChange={(e) => handleNumericChange("elevatorTrim.min", e.target.value, (n) => update({ elevatorTrimTakeOffRange: { ...profile.elevatorTrimTakeOffRange, min: n } }))} onBlur={() => handleNumericBlur("elevatorTrim.min", (n) => update({ elevatorTrimTakeOffRange: { ...profile.elevatorTrimTakeOffRange, min: n } }))} disabled={!editing || !profile.displayElevatorTrim} />
+              ~<input type="number" step="1" className="input-text ml-2 custom-profile-textbox" value={numVal("elevatorTrim.max", profile.elevatorTrimTakeOffRange.max)} onChange={(e) => handleNumericChange("elevatorTrim.max", e.target.value, (n) => update({ elevatorTrimTakeOffRange: { ...profile.elevatorTrimTakeOffRange, max: n } }))} onBlur={() => handleNumericBlur("elevatorTrim.max", (n) => update({ elevatorTrimTakeOffRange: { ...profile.elevatorTrimTakeOffRange, max: n } }))} disabled={!editing || !profile.displayElevatorTrim} />
             </label>
           </div>
         </div>
@@ -282,8 +302,8 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
           <div className="form-group mb-0">
             <label className={`form-label ${profile.displayRudderTrim ? "text-black" : "text-muted"} font-weight-bold`}>
               T/O Range (0-100)
-              <input type="number" step="1" className="input-text ml-2 custom-profile-textbox" value={profile.rudderTrimTakeOffRange.min} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ rudderTrimTakeOffRange: { ...profile.rudderTrimTakeOffRange, min: n } }); }} disabled={!editing || !profile.displayRudderTrim} />
-              ~<input type="number" step="1" className="input-text ml-2 custom-profile-textbox" value={profile.rudderTrimTakeOffRange.max} onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ rudderTrimTakeOffRange: { ...profile.rudderTrimTakeOffRange, max: n } }); }} disabled={!editing || !profile.displayRudderTrim} />
+              <input type="number" step="1" className="input-text ml-2 custom-profile-textbox" value={numVal("rudderTrim.min", profile.rudderTrimTakeOffRange.min)} onChange={(e) => handleNumericChange("rudderTrim.min", e.target.value, (n) => update({ rudderTrimTakeOffRange: { ...profile.rudderTrimTakeOffRange, min: n } }))} onBlur={() => handleNumericBlur("rudderTrim.min", (n) => update({ rudderTrimTakeOffRange: { ...profile.rudderTrimTakeOffRange, min: n } }))} disabled={!editing || !profile.displayRudderTrim} />
+              ~<input type="number" step="1" className="input-text ml-2 custom-profile-textbox" value={numVal("rudderTrim.max", profile.rudderTrimTakeOffRange.max)} onChange={(e) => handleNumericChange("rudderTrim.max", e.target.value, (n) => update({ rudderTrimTakeOffRange: { ...profile.rudderTrimTakeOffRange, max: n } }))} onBlur={() => handleNumericBlur("rudderTrim.max", (n) => update({ rudderTrimTakeOffRange: { ...profile.rudderTrimTakeOffRange, max: n } }))} disabled={!editing || !profile.displayRudderTrim} />
             </label>
           </div>
         </div>
@@ -301,11 +321,11 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
 
       {/* Flap Markings */}
       <div className="row">
-        <div className="col-2" />
-        <div className="col-2 pt-1">
+        <div className="col-12 col-md-2" />
+        <div className="col-12 col-md-2 pt-1">
           <label className={`form-label ${profile.displayFlapsIndicator ? "text-black" : "text-muted"} font-weight-bold`}>Markings</label>
         </div>
-        <div className="col-8 pt-1">
+        <div className="col-12 col-md-8 pt-1">
           <div className="form-group mb-0">
             {profile.flapsRange.markings.map((m, i) => (
               <input
@@ -327,11 +347,11 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
 
       {/* Flap Positions */}
       <div className="row mb-4">
-        <div className="col-2" />
-        <div className="col-2 pt-1">
+        <div className="col-12 col-md-2" />
+        <div className="col-12 col-md-2 pt-1">
           <label className={`form-label ${profile.displayFlapsIndicator ? "text-black" : "text-muted"} font-weight-bold`}>Positions</label>
         </div>
-        <div className="col-8 pt-1">
+        <div className="col-12 col-md-8 pt-1">
           <div className="form-group mb-0">
             {profile.flapsRange.positions.map((p, i) => (
               <input
@@ -355,41 +375,38 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
       {/* V-Speeds */}
       <div className="row mb-1">
         {(["Vs0", "Vs1", "Vfe", "Vno", "Vne"] as const).map((key) => (
-          <Fragment key={key}>
-            <div className="col-1 text-end pr-1">
-              <abbr className="form-label text-black font-weight-bold mb-0 mt-1" title={vspeedTooltips[key]} style={{ textDecoration: "none", cursor: "help" }}>{key}</abbr>
-            </div>
-            <div className="col-1 px-0">
-              <input
-                type="number"
-                step="1"
-                className="input-text ml-1 custom-profile-textbox"
-                value={profile.vSpeeds[key]}
-                onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ vSpeeds: { ...profile.vSpeeds, [key]: n } }); }}
-                disabled={!editing}
-              />
-            </div>
-          </Fragment>
+          <div key={key} className="col-6 col-sm-4 col-md-2 mb-2">
+            <label className="form-label text-black font-weight-bold mb-0">
+              <abbr title={vspeedTooltips[key]} style={{ textDecoration: "none", cursor: "help" }}>{key}</abbr>
+            </label>
+            <input
+              type="number"
+              step="1"
+              className="input-text w-100 custom-profile-textbox"
+              value={numVal(`vSpeed.${key}`, profile.vSpeeds[key])}
+              onChange={(e) => handleNumericChange(`vSpeed.${key}`, e.target.value, (n) => update({ vSpeeds: { ...profile.vSpeeds, [key]: n } }))}
+              onBlur={() => handleNumericBlur(`vSpeed.${key}`, (n) => update({ vSpeeds: { ...profile.vSpeeds, [key]: n } }))}
+              disabled={!editing}
+            />
+          </div>
         ))}
       </div>
       <div className="row mb-4">
-        <div className="col-2" />
         {(["Vglide", "Vr", "Vx", "Vy"] as const).map((key) => (
-          <Fragment key={key}>
-            <div className="col-1 text-end pr-1">
-              <abbr className="form-label text-black font-weight-bold mb-0 mt-1" title={vspeedTooltips[key]} style={{ textDecoration: "none", cursor: "help" }}>{key === "Vglide" ? "Vg" : key}</abbr>
-            </div>
-            <div className="col-1 px-0">
-              <input
-                type="number"
-                step="1"
-                className="input-text ml-1 custom-profile-textbox"
-                value={profile.vSpeeds[key]}
-                onChange={(e) => { const n = parseNum(e.target.value); if (n !== null) update({ vSpeeds: { ...profile.vSpeeds, [key]: n } }); }}
-                disabled={!editing}
-              />
-            </div>
-          </Fragment>
+          <div key={key} className="col-6 col-sm-4 col-md-2 mb-2">
+            <label className="form-label text-black font-weight-bold mb-0">
+              <abbr title={vspeedTooltips[key]} style={{ textDecoration: "none", cursor: "help" }}>{key === "Vglide" ? "Vg" : key}</abbr>
+            </label>
+            <input
+              type="number"
+              step="1"
+              className="input-text w-100 custom-profile-textbox"
+              value={numVal(`vSpeed.${key}`, profile.vSpeeds[key])}
+              onChange={(e) => handleNumericChange(`vSpeed.${key}`, e.target.value, (n) => update({ vSpeeds: { ...profile.vSpeeds, [key]: n } }))}
+              onBlur={() => handleNumericBlur(`vSpeed.${key}`, (n) => update({ vSpeeds: { ...profile.vSpeeds, [key]: n } }))}
+              disabled={!editing}
+            />
+          </div>
         ))}
       </div>
 

@@ -28,13 +28,20 @@ test("getClientIp uses first forwarded IP, then x-real-ip, then unknown", () => 
   const forwarded = new Request("http://localhost", {
     headers: { "x-forwarded-for": " 198.51.100.7 , 203.0.113.5 " },
   });
-  assert.equal(getClientIp(forwarded), "198.51.100.7");
+  assert.equal(getClientIp(forwarded, true), "198.51.100.7");
 
   const realIp = new Request("http://localhost", {
     headers: { "x-forwarded-for": "   ", "x-real-ip": "203.0.113.9" },
   });
-  assert.equal(getClientIp(realIp), "203.0.113.9");
+  assert.equal(getClientIp(realIp, true), "203.0.113.9");
 
   const unknown = new Request("http://localhost");
-  assert.equal(getClientIp(unknown), "unknown");
+  assert.equal(getClientIp(unknown, true), "unknown");
+});
+
+test("getClientIp returns 'unknown' when TRUST_PROXY is not set", () => {
+  const forwarded = new Request("http://localhost", {
+    headers: { "x-forwarded-for": "198.51.100.7", "x-real-ip": "203.0.113.9" },
+  });
+  assert.equal(getClientIp(forwarded, false), "unknown");
 });

@@ -253,13 +253,13 @@ export default function ProfilePageContent() {
                   <div className="btn-group">
                     <button
                       className={`btn btn-sm ${!profile.isPublished ? "btn-primary" : "btn-secondary"}`}
-                      onClick={() => setProfile({ ...profile, isPublished: false })}
+                      onClick={() => { setProfile({ ...profile, isPublished: false }); setDirty(true); }}
                     >
                       Draft
                     </button>
                     <button
                       className={`btn btn-sm ${profile.isPublished ? "btn-primary" : "btn-secondary"}`}
-                      onClick={() => setProfile({ ...profile, isPublished: true })}
+                      onClick={() => { setProfile({ ...profile, isPublished: true }); setDirty(true); }}
                     >
                       Published
                     </button>
@@ -283,7 +283,7 @@ export default function ProfilePageContent() {
                     className="form-control d-inline-block w-auto ms-2"
                     value={profile.name}
                     onChange={(e) =>
-                      editing ? setProfile({ ...profile, name: e.target.value }) : undefined
+                      editing ? (setProfile({ ...profile, name: e.target.value }), setDirty(true)) : undefined
                     }
                     disabled={!editing}
                   />
