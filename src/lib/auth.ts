@@ -1,5 +1,5 @@
-import { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 import { findUserByEmail } from "./user-store";
 import { verifyPassword } from "./password";
 
@@ -7,19 +7,20 @@ if (!process.env.NEXTAUTH_SECRET) {
   throw new Error("NEXTAUTH_SECRET environment variable is not set");
 }
 
-export const authOptions: NextAuthOptions = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: "jwt",
   },
   providers: [
-    CredentialsProvider({
+    Credentials({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (typeof credentials?.email !== "string" || typeof credentials?.password !== "string") return null;
+        if (!credentials.email || !credentials.password) return null;
 
         const user = await findUserByEmail(credentials.email);
         if (!user) return null;
@@ -44,7 +45,7 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (token.ownerId) {
+      if (typeof token.ownerId === "string") {
         session.ownerId = token.ownerId;
       }
       return session;
@@ -53,4 +54,4 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/auth/signin",
   },
-};
+});

@@ -2,7 +2,7 @@
 
 **Reviewed:** February 2026  
 **Updated:** February 2026 — reflects fixes applied in this revision  
-**Stack:** Next.js 16 / React 19 / MongoDB / NextAuth v4 / Argon2 / Nodemailer  
+**Stack:** Next.js 16 / React 19 / MongoDB / Auth.js v5 / Argon2 / Nodemailer  
 **Scope:** Full codebase — security, architecture, implementation, usability
 
 ---
@@ -123,7 +123,7 @@ if (!process.env.NEXTAUTH_SECRET) {
 
 This causes an immediate, unambiguous startup failure rather than a hard-to-diagnose runtime error.
 
-> **Reference:** NextAuth v4 documentation – Secret; NIST SP 800-63B §4.3.
+> **Reference:** Auth.js documentation – Secret; NIST SP 800-63B §4.3.
 
 ---
 
@@ -201,9 +201,11 @@ The fake email service writes emails to `process.cwd()/email/`. This is fragile 
 
 ---
 
-### 2.7 `next-auth` v4 with Next.js 15+ — **LOW** — ⚠️ OPEN (informational)
+### 2.7 ~~`next-auth` v4 with Next.js 15+~~ — ✅ FIXED
 
-The project uses NextAuth v4 (`next-auth: ^4.24.13`) with Next.js 16. Auth.js v5 is the current version designed for the Next.js App Router. This is technical debt that should be migrated when the team has bandwidth.
+**File:** `package.json`, `src/lib/auth.ts`, `src/app/api/auth/[...nextauth]/route.ts`, `src/app/api/profiles/[id]/route.ts`
+
+The project has been migrated from NextAuth v4 to Auth.js v5 (`next-auth@5.0.0-beta.30`). The `NextAuthOptions` export has been replaced with the `NextAuth()` function API that returns `{ handlers, auth, signIn, signOut }`. Server-side session retrieval now uses the exported `auth()` function instead of `getServerSession(authOptions)`. The route handler uses the `handlers` export. Client-side hooks (`useSession`, `signIn`, `signOut`, `SessionProvider`) remain compatible.
 
 > **Reference:** Auth.js v5 migration guide.
 
@@ -345,7 +347,7 @@ The V-speed labels (`Vs0`, `Vs1`, `Vfe`, `Vno`, `Vne`, `Vglide`, `Vr`, `Vx`, `Vy
 | 2.4 | PascalCase field names | ⚠️ OPEN | MEDIUM |
 | 2.5 | Dead code: `EditProfileContent.tsx` | ✅ FIXED | LOW |
 | 2.6 | Fake email writes to local filesystem | ⚠️ OPEN | LOW |
-| 2.7 | NextAuth v4 with Next.js 15+ | ⚠️ OPEN | LOW |
+| 2.7 | NextAuth v4 with Next.js 15+ | ✅ FIXED | LOW |
 | 3.1 | 6-digit reset code brute-forceable | ⚠️ OPEN | HIGH |
 | 3.2 | `Number(e.target.value) \|\| 0` mishandles empty input | ⚠️ OPEN | MEDIUM |
 | 3.3 | Unpublished profiles visible without auth | ✅ FIXED (= 1.4) | HIGH |
@@ -380,7 +382,6 @@ The V-speed labels (`Vs0`, `Vs1`, `Vfe`, `Vno`, `Vne`, `Vglide`, `Vr`, `Vx`, `Vy
 - MongoDB Transactions: https://www.mongodb.com/docs/manual/core/transactions/
 - Node.js – Unhandled Promise Rejections: https://nodejs.org/api/process.html#event-unhandledrejection
 - React – Keys: https://react.dev/learn/rendering-lists#keeping-list-items-in-order-with-key
-- NextAuth v4 documentation: https://next-auth.js.org/getting-started/introduction
 - Auth.js v5 (NextAuth v5): https://authjs.dev
 - Google Web.dev – Skeleton screens: https://web.dev/articles/ux-improvements-for-pwa#skeleton-screens
 
