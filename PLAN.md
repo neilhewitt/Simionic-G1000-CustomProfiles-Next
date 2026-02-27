@@ -92,7 +92,7 @@ This document lists every open issue from `CODE_REVIEW.md`, ordered from highest
 
 ---
 
-## Issue 4 — Delete Profile Functionality
+## Issue 4 — Delete Profile Functionality ✅
 
 **CODE_REVIEW ref:** §4.1 (HIGH)
 
@@ -105,7 +105,7 @@ This document lists every open issue from `CODE_REVIEW.md`, ordered from highest
 
 **Steps:**
 
-- [ ] **4a — Add `deleteProfile` to the data store.** In `src/lib/data-store.ts`, add:
+- [x] **4a — Add `deleteProfile` to the data store.** In `src/lib/data-store.ts`, add:
   ```ts
   export async function deleteProfile(id: string): Promise<boolean> {
     const db = await getDb();
@@ -113,14 +113,14 @@ This document lists every open issue from `CODE_REVIEW.md`, ordered from highest
     return result.deletedCount === 1;
   }
   ```
-- [ ] **4b — Add `DELETE` handler to the profile API route.** In `src/app/api/profiles/[id]/route.ts`, add a `DELETE` function that:
+- [x] **4b — Add `DELETE` handler to the profile API route.** In `src/app/api/profiles/[id]/route.ts`, add a `DELETE` function that:
   1. Requires authentication (`getServerSession`).
   2. Validates the UUID format.
   3. Fetches the existing profile and verifies ownership (`profile.Owner.Id === session.ownerId`).
   4. Calls `deleteProfile(id)`.
   5. Returns `200 { success: true }` or `404` if not found.
-- [ ] **4c — Add a delete button to the profile page.** In `ProfilePageContent.tsx`, add a "Delete" button visible only to the profile owner (next to the Edit button, in the view-mode action bar). Clicking it should show a confirmation dialog. On confirmation, `fetch(`/api/profiles/${id}`, { method: "DELETE" })` and redirect to `/profiles`.
-- [ ] **4d — Validate.** Create a test profile, delete it, confirm it's gone from the list and the API returns 404.
+- [x] **4c — Add a delete button to the profile page.** In `ProfilePageContent.tsx`, add a "Delete" button visible only to the profile owner (next to the Edit button, in the view-mode action bar). Clicking it should show a confirmation dialog. On confirmation, `fetch(`/api/profiles/${id}`, { method: "DELETE" })` and redirect to `/profiles`.
+- [x] **4d — Validate.** Create a test profile, delete it, confirm it's gone from the list and the API returns 404.
 
 ---
 

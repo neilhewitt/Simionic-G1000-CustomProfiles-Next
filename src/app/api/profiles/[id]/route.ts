@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProfile, upsertProfile } from "@/lib/data-store";
+import { getProfile, upsertProfile, deleteProfile } from "@/lib/data-store";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Profile } from "@/types";
@@ -76,5 +76,39 @@ export async function POST(
   } catch (error) {
     console.error("Failed to upsert profile:", error);
     return NextResponse.json({ error: "Failed to save profile" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    if (!UUID_REGEX.test(id)) {
+      return NextResponse.json({ error: "Invalid profile ID" }, { status: 400 });
+    }
+
+    const existing = await getProfile(id);
+    if (!existing) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+    if (existing.Owner?.Id !== session.ownerId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const deleted = await deleteProfile(id);
+    if (!deleted) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete profile:", error);
+    return NextResponse.json({ error: "Failed to delete profile" }, { status: 500 });
   }
 }
