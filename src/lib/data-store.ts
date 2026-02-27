@@ -109,6 +109,12 @@ export async function upsertProfile(id: string, profile: Profile): Promise<void>
   );
 }
 
+export async function deleteProfile(id: string): Promise<boolean> {
+  const db = await getDb();
+  const result = await db.collection(COLLECTION).deleteOne({ id });
+  return result.deletedCount === 1;
+}
+
 /**
  * Updates the Owner.Id and Owner.Name on all profiles matching the old owner ID.
  * Used during Microsoft account → local account conversion.

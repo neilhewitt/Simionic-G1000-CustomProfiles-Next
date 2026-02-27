@@ -23,6 +23,8 @@ export default function ProfilePageContent() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const ownerId = session?.ownerId ?? null;
   const isLoggedIn = !!session?.user;
@@ -113,6 +115,24 @@ export default function ProfilePageContent() {
     }
   }, [profile, saving, showSaveConfirm, router]);
 
+  async function handleDelete() {
+    if (!profile?.id || deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/profiles/${profile.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete profile");
+      router.push("/profiles");
+    } catch (err) {
+      setDeleting(false);
+      setError(err instanceof Error ? err.message : "Failed to delete");
+    }
+  }
+
+  function confirmDelete() {
+    setShowDeleteConfirm(false);
+    handleDelete();
+  }
+
   function cancelEdit() {
     if (isNew) {
       // Nothing to go back to — return to the profile list
@@ -201,6 +221,14 @@ export default function ProfilePageContent() {
                   >
                     Export
                   </button>
+                  {canEdit && (
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => setShowDeleteConfirm(true)}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -287,6 +315,25 @@ export default function ProfilePageContent() {
                 <div className="d-flex gap-2 justify-content-end">
                   <button className="btn btn-success" onClick={save}>Save</button>
                   <button className="btn btn-primary" onClick={() => { setShowSaveConfirm(false); setSaving(false); }}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <div className="modal d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-body p-4">
+                <p>Deleting this profile will make it unavailable for all users. Are you sure you want to do this? Please keep this profile available for the community if you think it might be useful to someone.</p>
+                <div className="d-flex gap-2 justify-content-end">
+                  <button className="btn btn-danger" onClick={confirmDelete} disabled={deleting}>
+                    {deleting ? "Deleting..." : "Delete"}
+                  </button>
+                  <button className="btn btn-primary" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>Cancel</button>
                 </div>
               </div>
             </div>
