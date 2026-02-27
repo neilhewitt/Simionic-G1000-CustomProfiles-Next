@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProfile, upsertProfile, deleteProfile } from "@/lib/data-store";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { profileSchema } from "@/lib/profile-schema";
 import { Profile } from "@/types";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -41,23 +42,19 @@ export async function POST(
       return NextResponse.json({ error: "Invalid profile ID" }, { status: 400 });
     }
 
-    let profile: Profile;
+    let body: unknown;
     try {
-      profile = await request.json();
+      body = await request.json();
     } catch {
       return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
     }
 
-    // Server-side input validation
-    if (typeof profile.Name !== "string" || !profile.Name.trim()) {
-      return NextResponse.json({ error: "Profile name is required." }, { status: 400 });
+    // Server-side schema validation (strips unknown fields)
+    const result = profileSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
     }
-    if (profile.Name.length > 200) {
-      return NextResponse.json({ error: "Profile name must be 200 characters or fewer." }, { status: 400 });
-    }
-    if (profile.Notes != null && profile.Notes.length > 2000) {
-      return NextResponse.json({ error: "Notes must be 2000 characters or fewer." }, { status: 400 });
-    }
+    const profile = result.data as Profile;
 
     // Verify the caller owns the existing profile (if it already exists)
     const existing = await getProfile(id);
