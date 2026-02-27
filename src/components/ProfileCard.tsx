@@ -16,7 +16,16 @@ export default function ProfileCard({ profile, isOwner }: ProfileCardProps) {
     <div
       className="col-lg-4 mb-5"
       style={{ cursor: "pointer" }}
+      role="button"
+      tabIndex={0}
       onClick={() => router.push(`/profile/${profile.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          router.push(`/profile/${profile.id}`);
+        }
+      }}
+      aria-label={`View profile: ${profile.name}`}
     >
       <div className={`card h-100 border-1 shadow-sm ${profile.isPublished ? "" : "bg-mid"}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -34,16 +34,8 @@ export default function Notice({ headline, strapLine, showSearch, showLinks }: N
               {showSearch && (
                 <div className="d-grid gap-3 d-sm-flex justify-content-sm-center justify-content-xl-start">
                   <input
-                    className="px-4 rounded border-0 shadow-none form-control form-control-lg d-sm-none"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") doSearch();
-                    }}
-                    placeholder="Search profiles..."
-                  />
-                  <input
-                    className="px-4 rounded border-0 shadow-none form-control form-control-lg w-50 d-none d-sm-inline"
+                    className="px-4 rounded border-0 shadow-none form-control form-control-lg w-auto"
+                    style={{ minWidth: "200px", maxWidth: "50%" }}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={(e) => {

@@ -10,7 +10,6 @@
   "Engines": 1,
   "IsPublished": true,
   "Notes": "This profile was made for the Simworks Kodiak 100 in MSFS, though it should be applicable to any Kodiak 100. Data mostly sourced from the POH and engine type certification. The gauge ranges were estimated from visual inspection of the Garmin documentation as the ranges are not documented in the POH since the aircraft is available with different avionics packages. So these ranges are *estimates*. If anyone has accurate figures I\u0027d be most grateful if they\u0027d post them on the Facebook group and then I can update this profile. ",
-  "ForkedFrom": null,
   "Cylinders": 0,
   "FADEC": false,
   "Turbocharged": false,

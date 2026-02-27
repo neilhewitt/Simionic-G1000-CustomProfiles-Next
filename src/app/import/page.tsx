@@ -12,7 +12,7 @@ export default function ImportPage() {
   const router = useRouter();
   const [fileChosen, setFileChosen] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
 
   const isLoggedIn = !!session?.user;
@@ -46,19 +46,29 @@ export default function ImportPage() {
         body: JSON.stringify(profile),
       });
 
-      if (!res.ok) throw new Error("Failed to upload profile");
+      if (!res.ok) {
+        let message = "Failed to upload profile";
+        try {
+          const body = await res.json();
+          if (body?.error) message = body.error;
+          else if (body?.message) message = body.message;
+        } catch {
+          // ignore JSON parse errors
+        }
+        throw new Error(message);
+      }
 
       setUploading(false);
       await new Promise((resolve) => setTimeout(resolve, 1500));
       router.push(`/profile/${newId}?edit=true`);
-    } catch {
-      setError(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
       setUploading(false);
     }
   }
 
   function resetState() {
-    setError(false);
+    setError(null);
     setUploading(false);
     setFileChosen(false);
   }
@@ -97,7 +107,7 @@ export default function ImportPage() {
                     )}
                     {error && (
                       <>
-                        <p className="lead fw-normal text-danger">An error occurred uploading the file. Are you sure this is a valid profile JSON file?</p>
+                        <p className="lead fw-normal text-danger">{error}</p>
                         <p className="lead fw-normal text-white-50 mb-4">
                           You can{" "}
                           <a href="#" onClick={(e) => { e.preventDefault(); resetState(); }}>try again</a>.

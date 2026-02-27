@@ -8,7 +8,20 @@
  * Enum *values* are unchanged — only object *keys* are transformed.
  */
 
-const camelToPascal: Record<string, string> = {
+import type { profileSchema } from "./profile-schema";
+import type { z } from "zod";
+
+// All top-level profile field names (excluding `id` which stays lowercase).
+// If a new field is added to profileSchema but not to camelToPascal below,
+// TypeScript will produce a compile-time error here.
+type ProfileSchemaKeys = Exclude<keyof z.infer<typeof profileSchema>, "id">;
+
+// The mapped type enforces that all Profile field keys are present in camelToPascal.
+// The additional `{ [key: string]: string }` index signature is required because
+// camelToPascal also maps nested-object keys (e.g. "min", "colour", "ranges") that
+// are not top-level Profile fields. TypeScript still enforces presence of each
+// ProfileSchemaKeys key despite the index signature.
+const camelToPascal: { [K in ProfileSchemaKeys]: string } & { [key: string]: string } = {
   // OwnerInfo
   owner: "Owner",
   lastUpdated: "LastUpdated",

@@ -2,11 +2,24 @@
 
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export default function Navbar() {
   const { data: session } = useSession();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close the user menu when clicking outside it
+  useEffect(() => {
+    if (!showUserMenu) return;
+    function handleMouseDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [showUserMenu]);
 
   return (
     <header className="flex-shrink-0">
@@ -38,7 +51,7 @@ export default function Navbar() {
                 </Link>
               </li>
               {session ? (
-                <div className="dropdown show">
+                <div className="dropdown show" ref={menuRef}>
                   <button
                     className="nav-link pt-0 text-white bg-transparent border-0 cursor-pointer"
                     style={{ fontSize: "1.75rem" }}

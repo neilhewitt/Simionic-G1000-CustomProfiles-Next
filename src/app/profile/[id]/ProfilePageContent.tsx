@@ -19,8 +19,10 @@ export default function ProfilePageContent() {
   const isNew = id === "new";
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState(!isNew);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
@@ -52,6 +54,7 @@ export default function ProfilePageContent() {
         })
         .then((data) => {
           setProfile(data);
+          setIsLoading(false);
           // Enter edit mode if ?edit=true and user owns the profile
           if (
             searchParams.get("edit") === "true" &&
@@ -62,20 +65,20 @@ export default function ProfilePageContent() {
             setEditing(true);
           }
         })
-        .catch((err) => setError(getUserFriendlyError(err)));
+        .catch((err) => { setError(getUserFriendlyError(err)); setIsLoading(false); });
     }
   }, [id, isNew, isLoggedIn, ownerId, session?.user?.name, searchParams]);
 
   // Warn the user if they try to navigate away with unsaved changes
   useEffect(() => {
-    if (!editing || profile === null) return;
+    if (!dirty || profile === null) return;
     function handleBeforeUnload(e: BeforeUnloadEvent) {
       e.preventDefault();
       e.returnValue = '';
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [editing, profile]);
+  }, [dirty, profile]);
 
   // Save (or first-time save confirmation for new profiles)
   const save = useCallback(async () => {
@@ -105,6 +108,7 @@ export default function ProfilePageContent() {
       setSaving(false);
       setSaved(true);
       setEditing(false);
+      setDirty(false);
 
       setTimeout(() => setSaved(false), 2000);
 
@@ -149,6 +153,7 @@ export default function ProfilePageContent() {
       .then((data) => {
         setProfile(data);
         setEditing(false);
+        setDirty(false);
       })
       .catch((err) => setError(getUserFriendlyError(err)));
   }
@@ -173,16 +178,24 @@ export default function ProfilePageContent() {
 
   return (
     <section className="bg-white pt-5">
-      <div className="text-center mb-2">
-        <h3 className="fw-bolder">
-          {profile?.name ?? "Loading..."}
-          {editing && profile && (
-            <span className="text-danger ms-3 fs-5">
-              {profile.id === null ? "New Profile" : "Editing"}
-            </span>
-          )}
-        </h3>
-      </div>
+      {isLoading ? (
+        <div className="d-flex justify-content-center align-items-center py-5" style={{ minHeight: "60vh" }}>
+          <div className="spinner-border text-secondary" role="status" style={{ width: "3rem", height: "3rem" }}>
+            <span className="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="text-center mb-2">
+            <h3 className="fw-bolder">
+              {profile?.name ?? ""}
+              {editing && profile && (
+                <span className="text-danger ms-3 fs-5">
+                  {profile.id === null ? "New Profile" : "Editing"}
+                </span>
+              )}
+            </h3>
+          </div>
 
       {profile && (
         <>
@@ -211,7 +224,7 @@ export default function ProfilePageContent() {
                   {canEdit && (
                     <button
                       className="btn btn-primary btn-sm"
-                      onClick={() => setEditing(true)}
+                      onClick={() => { setEditing(true); setDirty(false); /* reset dirty flag when entering edit mode */ }}
                     >
                       Edit
                     </button>
@@ -281,7 +294,7 @@ export default function ProfilePageContent() {
               <ProfileEditor
                 profile={profile}
                 editing={editing}
-                onChange={editing ? setProfile : undefined}
+                onChange={editing ? (p) => { setProfile(p); setDirty(true); } : undefined}
               />
 
               {/* Bottom save bar */}
@@ -357,6 +370,8 @@ export default function ProfilePageContent() {
       <p className="text-center py-4">
         <Link href="/profiles">Back to profile list</Link>
       </p>
+        </>
+      )}
     </section>
   );
 }

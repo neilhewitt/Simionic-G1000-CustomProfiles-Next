@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { ProfileSummary, AircraftType } from "@/types";
@@ -28,6 +28,20 @@ export default function ProfileListContent() {
   const [onlyShowMine, setOnlyShowMine] = useState(false);
   const [onlyShowDrafts, setOnlyShowDrafts] = useState(false);
   const [page, setPage] = useState(1);
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+
+  // Debounce the search term by 300ms to avoid firing a query on every keystroke
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1);
+    }, 300);
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, [searchTerm]);
 
   const isLoggedIn = !!session?.user;
   const ownerId = session?.ownerId ?? null;
@@ -38,7 +52,7 @@ export default function ProfileListContent() {
         const params = new URLSearchParams();
         if (typeFilter !== null) params.set("type", String(typeFilter));
         if (engineFilter !== null) params.set("engines", String(engineFilter));
-        if (searchTerm) params.set("search", searchTerm);
+        if (debouncedSearch) params.set("search", debouncedSearch);
         if (ownerId && onlyShowMine) {
           params.set("owner", ownerId);
           if (onlyShowDrafts) params.set("drafts", "true");
@@ -56,7 +70,7 @@ export default function ProfileListContent() {
     }
 
     fetchProfiles();
-  }, [typeFilter, engineFilter, searchTerm, onlyShowMine, onlyShowDrafts, page, ownerId]);
+  }, [typeFilter, engineFilter, debouncedSearch, onlyShowMine, onlyShowDrafts, page, ownerId]);
 
   function handleTypeChange(type: AircraftType | null) {
     setTypeFilter(type);
@@ -70,7 +84,7 @@ export default function ProfileListContent() {
 
   function handleSearchChange(term: string) {
     setSearchTerm(term);
-    setPage(1);
+    // Page reset happens inside the debounce effect
   }
 
   function handleOwnerFilterChange(mine: boolean, drafts: boolean) {
@@ -81,6 +95,7 @@ export default function ProfileListContent() {
 
   function reset() {
     setSearchTerm("");
+    setDebouncedSearch("");
     setTypeFilter(null);
     setEngineFilter(null);
     setOnlyShowMine(false);

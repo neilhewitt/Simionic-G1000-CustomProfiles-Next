@@ -1,4 +1,4 @@
-import { findUserByEmail, createUser, updatePassword, createUserIdempotent } from "./user-store";
+import { findUserByEmail, updatePassword, createUserIdempotent } from "./user-store";
 import { createResetCode, verifyResetCode, findConversionToken, markConversionTokenUsed, createConversionToken } from "./token-store";
 import { hashPassword } from "./password";
 import { getEmailService } from "./email";
@@ -31,13 +31,11 @@ export async function registerUser(
   email: string,
   password: string
 ): Promise<{ ownerId: string }> {
-  const existing = await findUserByEmail(email);
-  if (existing) {
+  const passwordHash = await hashPassword(password);
+  const { user, created } = await createUserIdempotent(email, name.trim(), passwordHash);
+  if (!created) {
     throw new ConflictError("An account with this email already exists.");
   }
-
-  const passwordHash = await hashPassword(password);
-  const user = await createUser(email, name.trim(), passwordHash);
   return { ownerId: user.ownerId };
 }
 
@@ -132,6 +130,14 @@ export async function completeConversion(
 
   const oldOwnerId = getOwnerId(email);
   const passwordHash = await hashPassword(password);
+
+  // NOTE: The three operations below (createUserIdempotent, updateProfileOwner,
+  // markConversionTokenUsed) are not wrapped in a MongoDB transaction.
+  // A crash between steps can leave the system in an inconsistent state.
+  // To make this fully atomic, wrap all three in a session.withTransaction()
+  // call (requires a MongoDB replica set or Atlas cluster). The idempotent
+  // design of each individual operation mitigates the impact of partial
+  // failures and allows safe retries via the token-already-used check above.
   const { user, created } = await createUserIdempotent(email, name.trim(), passwordHash);
 
   if (created) {

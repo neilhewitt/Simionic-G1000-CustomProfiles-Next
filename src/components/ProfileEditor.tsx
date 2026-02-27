@@ -69,10 +69,10 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
     <div>
       {/* Aircraft type */}
       <div className="row">
-        <div className="col-3">
+        <div className="col-12 col-md-3">
           <label className="form-label text-black font-weight-bold pt-2">Type</label>
         </div>
-        <div className="col-9">
+        <div className="col-12 col-md-9">
           <div className="form-group">
             <div className="btn-group">
               {[AircraftType.Piston, AircraftType.Turboprop, AircraftType.Jet].map((type) => (
@@ -110,10 +110,10 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
       {profile.aircraftType === AircraftType.Piston && (
         <>
           <div className="row">
-            <div className="col-3">
+            <div className="col-12 col-md-3">
               <label className="form-label text-black font-weight-bold pt-2">Cylinders</label>
             </div>
-            <div className="col-9">
+            <div className="col-12 col-md-9">
               <div className="form-group">
                 <div className="btn-group">
                   <button
@@ -135,26 +135,26 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
             </div>
           </div>
           <div className="row">
-            <div className="col-3 pt-1">
+            <div className="col-12 col-md-3 pt-1">
               <label className="form-label text-black font-weight-bold">FADEC</label>
             </div>
-            <div className="col-9">
+            <div className="col-12 col-md-9">
               <input className="form-check-input custom-profile-checkbox shadow-none" type="checkbox" checked={profile.fadec} onChange={(e) => setFADEC(e.target.checked)} disabled={!editing} />
             </div>
           </div>
           <div className="row">
-            <div className="col-3 pt-1">
+            <div className="col-12 col-md-3 pt-1">
               <label className="form-label text-black font-weight-bold">Turbocharged</label>
             </div>
-            <div className="col-9">
+            <div className="col-12 col-md-9">
               <input className="form-check-input custom-profile-checkbox shadow-none" type="checkbox" checked={profile.turbocharged} onChange={(e) => update({ turbocharged: e.target.checked })} disabled={!editing} />
             </div>
           </div>
           <div className="row">
-            <div className="col-3 pt-1">
+            <div className="col-12 col-md-3 pt-1">
               <label className="form-label text-black font-weight-bold">Constant-speed</label>
             </div>
-            <div className="col-9">
+            <div className="col-12 col-md-9">
               <input className="form-check-input custom-profile-checkbox shadow-none" type="checkbox" checked={profile.constantSpeed} onChange={(e) => update({ constantSpeed: e.target.checked })} disabled={!editing || profile.fadec} />
             </div>
           </div>
@@ -163,10 +163,10 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
 
       {/* Temperature scale */}
       <div className="row pt-3">
-        <div className="col-3 pt-3 pt-1">
+        <div className="col-12 col-md-3 pt-3 pt-1">
           <label className="form-label text-black font-weight-bold mr-2">Temperature</label>
         </div>
-        <div className="col-9 pt-2">
+        <div className="col-12 col-md-9 pt-2">
           <div className="form-group">
             <div className="btn-group">
               <button
@@ -253,10 +253,10 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
 
       {/* Elevator Trim */}
       <div className="row mb-3">
-        <div className="col-2 pt-1">
+        <div className="col-12 col-md-2 pt-1">
           <label className="form-label text-black font-weight-bold">Elevator Trim</label>
         </div>
-        <div className="col-2">
+        <div className="col-12 col-md-2">
           <input className="form-check-input custom-profile-checkbox shadow-none" type="checkbox" checked={profile.displayElevatorTrim} onChange={(e) => update({ displayElevatorTrim: e.target.checked })} disabled={!editing} />
         </div>
         <div className="col-md-auto pt-1 ml-5">
@@ -272,10 +272,10 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
 
       {/* Rudder Trim */}
       <div className="row mb-3">
-        <div className="col-2 pt-1">
+        <div className="col-12 col-md-2 pt-1">
           <label className="form-label text-black font-weight-bold">Rudder Trim</label>
         </div>
-        <div className="col-2">
+        <div className="col-12 col-md-2">
           <input className="form-check-input custom-profile-checkbox shadow-none" type="checkbox" checked={profile.displayRudderTrim} onChange={(e) => update({ displayRudderTrim: e.target.checked })} disabled={!editing} />
         </div>
         <div className="col-md-auto pt-1 ml-5">
@@ -291,10 +291,10 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
 
       {/* Flap Indicator */}
       <div className="row mb-4">
-        <div className="col-2 pt-1">
+        <div className="col-12 col-md-2 pt-1">
           <label className="form-label text-black font-weight-bold">Flap Indicator</label>
         </div>
-        <div className="col-2">
+        <div className="col-12 col-md-2">
           <input className="form-check-input custom-profile-checkbox shadow-none" type="checkbox" checked={profile.displayFlapsIndicator} onChange={(e) => update({ displayFlapsIndicator: e.target.checked })} disabled={!editing} />
         </div>
       </div>

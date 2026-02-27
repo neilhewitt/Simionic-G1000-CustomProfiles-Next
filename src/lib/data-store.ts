@@ -44,10 +44,11 @@ export async function getAllProfiles(params: ProfilesQueryParams = {}): Promise<
 
   if (params.search?.trim()) {
     for (const term of params.search.trim().split(/[\s,]+/).filter(Boolean)) {
+      const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       andConditions.push({
         $or: [
-          { Name: { $regex: term, $options: "i" } },
-          { "Owner.Name": { $regex: term, $options: "i" } },
+          { Name: { $regex: escapedTerm, $options: "i" } },
+          { "Owner.Name": { $regex: escapedTerm, $options: "i" } },
         ],
       });
     }
