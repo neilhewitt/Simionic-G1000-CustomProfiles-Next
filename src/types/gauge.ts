@@ -1,7 +1,7 @@
 import { RangeColour } from "./enums";
 
 export interface GaugeRange {
-  id: string;
+  id?: string;
   colour: RangeColour;
   min: number;
   max: number;

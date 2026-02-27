@@ -357,7 +357,7 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
         {(["Vs0", "Vs1", "Vfe", "Vno", "Vne"] as const).map((key) => (
           <Fragment key={key}>
             <div className="col-1 text-end pr-1">
-              <abbr className="form-label text-black font-weight-bold mb-0 mt-1" title={vspeedTooltips[key]} style={{ textDecoration: "none" }}>{key}</abbr>
+              <abbr className="form-label text-black font-weight-bold mb-0 mt-1" title={vspeedTooltips[key]} style={{ textDecoration: "none", cursor: "help" }}>{key}</abbr>
             </div>
             <div className="col-1 px-0">
               <input
@@ -377,7 +377,7 @@ export default function ProfileEditor({ profile, editing, onChange }: ProfileEdi
         {(["Vglide", "Vr", "Vx", "Vy"] as const).map((key) => (
           <Fragment key={key}>
             <div className="col-1 text-end pr-1">
-              <abbr className="form-label text-black font-weight-bold mb-0 mt-1" title={vspeedTooltips[key]} style={{ textDecoration: "none" }}>{key === "Vglide" ? "Vg" : key}</abbr>
+              <abbr className="form-label text-black font-weight-bold mb-0 mt-1" title={vspeedTooltips[key]} style={{ textDecoration: "none", cursor: "help" }}>{key === "Vglide" ? "Vg" : key}</abbr>
             </div>
             <div className="col-1 px-0">
               <input
