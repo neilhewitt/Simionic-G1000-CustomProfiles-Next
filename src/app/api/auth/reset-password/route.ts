@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findUserByEmail, updatePassword } from "@/lib/user-store";
-import { verifyResetCode } from "@/lib/token-store";
-import { hashPassword } from "@/lib/password";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { resetPassword, ValidationError } from "@/lib/user-service";
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -38,21 +36,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await findUserByEmail(email);
-    if (!user) {
-      return NextResponse.json({ error: "Invalid or expired code." }, { status: 400 });
-    }
-
-    const valid = await verifyResetCode(email, resetToken);
-    if (!valid) {
-      return NextResponse.json({ error: "Invalid or expired code." }, { status: 400 });
-    }
-
-    const newHash = await hashPassword(password);
-    await updatePassword(email, newHash);
-
+    await resetPassword(email, resetToken, password);
     return NextResponse.json({ message: "Password reset successfully." });
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error("Reset password error:", error);
     return NextResponse.json(
       { error: "An unexpected error occurred." },

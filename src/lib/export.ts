@@ -1,7 +1,8 @@
 import { Profile } from "@/types";
+import { toPascalCase } from "./field-mapping";
 
 export function exportProfileAsJson(profile: Profile): void {
-  const exportData = { ...profile };
+  const exportData = toPascalCase<Record<string, unknown>>(profile);
 
   // Strip owner details and ID for export
   exportData.Owner = { Id: null, Name: null };
@@ -13,7 +14,7 @@ export function exportProfileAsJson(profile: Profile): void {
 
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${profile.Name}.json`;
+  a.download = `${profile.name}.json`;
   a.click();
 
   URL.revokeObjectURL(url);

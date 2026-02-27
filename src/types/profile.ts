@@ -2,25 +2,25 @@ import { AircraftType } from "./enums";
 import { Gauge } from "./gauge";
 
 export interface OwnerInfo {
-  Id: string | null;
-  Name: string | null;
+  id: string | null;
+  name: string | null;
 }
 
 export interface SettingRange {
-  Min: number;
-  Max: number;
+  min: number;
+  max: number;
 }
 
 export interface VacuumPSIRange {
-  Min: number;
-  Max: number;
-  GreenStart: number;
-  GreenEnd: number;
+  min: number;
+  max: number;
+  greenStart: number;
+  greenEnd: number;
 }
 
 export interface FlapsRange {
-  Markings: (string | null)[];
-  Positions: (number | null)[];
+  markings: (string | null)[];
+  positions: (number | null)[];
 }
 
 export interface VSpeeds {
@@ -37,58 +37,66 @@ export interface VSpeeds {
 
 export interface ProfileSummary {
   id: string;
-  Owner: OwnerInfo;
-  LastUpdated: string;
-  Name: string;
-  AircraftType: AircraftType;
-  Engines: number;
-  IsPublished: boolean;
-  Notes: string | null;
+  owner: OwnerInfo;
+  lastUpdated: string;
+  name: string;
+  aircraftType: AircraftType;
+  engines: number;
+  isPublished: boolean;
+  notes: string | null;
 }
 
-export interface Profile {
-  id: string | null;
-  Owner: OwnerInfo;
-  LastUpdated: string;
-  Name: string;
-  AircraftType: AircraftType;
-  Engines: number;
-  IsPublished: boolean;
-  Notes: string | null;
-  ForkedFrom: string | null;
+interface BaseProfile {
+  owner: OwnerInfo;
+  lastUpdated: string;
+  name: string;
+  aircraftType: AircraftType;
+  engines: number;
+  isPublished: boolean;
+  notes: string | null;
 
   // Piston only
-  Cylinders: number;
-  FADEC: boolean;
-  Turbocharged: boolean;
-  ConstantSpeed: boolean;
-  VacuumPSIRange: VacuumPSIRange;
-  ManifoldPressure: Gauge;
-  CHT: Gauge;
-  EGT: Gauge;
-  TIT: Gauge;
-  Load: Gauge;
+  cylinders: number;
+  fadec: boolean;
+  turbocharged: boolean;
+  constantSpeed: boolean;
+  vacuumPSIRange: VacuumPSIRange;
+  manifoldPressure: Gauge;
+  cht: Gauge;
+  egt: Gauge;
+  tit: Gauge;
+  load: Gauge;
 
   // Turbo only
-  Torque: Gauge;
-  NG: Gauge;
+  torque: Gauge;
+  ng: Gauge;
 
   // Turbo + Jet
-  ITT: Gauge;
+  itt: Gauge;
 
   // Common to all
-  TemperaturesInFahrenheit: boolean;
-  RPM: Gauge;
-  Fuel: Gauge;
-  FuelFlow: Gauge;
-  OilPressure: Gauge;
-  OilTemperature: Gauge;
+  temperaturesInFahrenheit: boolean;
+  rpm: Gauge;
+  fuel: Gauge;
+  fuelFlow: Gauge;
+  oilPressure: Gauge;
+  oilTemperature: Gauge;
 
-  DisplayElevatorTrim: boolean;
-  ElevatorTrimTakeOffRange: SettingRange;
-  DisplayRudderTrim: boolean;
-  RudderTrimTakeOffRange: SettingRange;
-  DisplayFlapsIndicator: boolean;
-  FlapsRange: FlapsRange;
-  VSpeeds: VSpeeds;
+  displayElevatorTrim: boolean;
+  elevatorTrimTakeOffRange: SettingRange;
+  displayRudderTrim: boolean;
+  rudderTrimTakeOffRange: SettingRange;
+  displayFlapsIndicator: boolean;
+  flapsRange: FlapsRange;
+  vSpeeds: VSpeeds;
 }
+
+export interface NewProfile extends BaseProfile {
+  id: null;
+}
+
+export interface SavedProfile extends BaseProfile {
+  id: string;
+}
+
+export type Profile = NewProfile | SavedProfile;

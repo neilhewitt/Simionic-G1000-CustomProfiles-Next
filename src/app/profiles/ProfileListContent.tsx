@@ -5,7 +5,9 @@ import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { ProfileSummary, AircraftType } from "@/types";
 import ProfileCard from "@/components/ProfileCard";
+import ProfileCardSkeleton from "@/components/ProfileCardSkeleton";
 import ProfileFilters from "@/components/ProfileFilters";
+import { getUserFriendlyError } from "@/lib/error-utils";
 
 interface PaginatedProfiles {
   profiles: ProfileSummary[];
@@ -49,7 +51,7 @@ export default function ProfileListContent() {
         setData(result);
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(getUserFriendlyError(err));
       }
     }
 
@@ -130,7 +132,7 @@ export default function ProfileListContent() {
                 <ProfileCard
                   key={profile.id}
                   profile={profile}
-                  isOwner={isLoggedIn && ownerId === profile.Owner?.Id}
+                  isOwner={isLoggedIn && ownerId === profile.owner?.id}
                 />
               ))}
             </div>
@@ -163,7 +165,11 @@ export default function ProfileListContent() {
           </>
         ) : (
           <div className="text-center">
-            <h5>Loading...</h5>
+            <div className="row gx-5">
+              {Array.from({ length: 6 }, (_, i) => (
+                <ProfileCardSkeleton key={i} />
+              ))}
+            </div>
             {error && (
               <>
                 <p className="text-danger">{error}</p>

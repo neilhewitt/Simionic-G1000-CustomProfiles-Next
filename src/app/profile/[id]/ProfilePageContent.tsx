@@ -8,6 +8,7 @@ import { Profile } from "@/types";
 import ProfileEditor from "@/components/ProfileEditor";
 import { exportProfileAsJson } from "@/lib/export";
 import { createDefaultProfile } from "@/lib/profile-utils";
+import { getUserFriendlyError } from "@/lib/error-utils";
 
 export default function ProfilePageContent() {
   const { data: session } = useSession();
@@ -28,7 +29,7 @@ export default function ProfilePageContent() {
 
   const ownerId = session?.ownerId ?? null;
   const isLoggedIn = !!session?.user;
-  const canEdit = isLoggedIn && !!ownerId && profile?.Owner?.Id === ownerId;
+  const canEdit = isLoggedIn && !!ownerId && profile?.owner?.id === ownerId;
 
   // Load the profile (or create a new one)
   useEffect(() => {
@@ -36,10 +37,10 @@ export default function ProfilePageContent() {
       if (!isLoggedIn) return;
       const name = searchParams.get("name") ?? "New Profile";
       const newProfile = createDefaultProfile();
-      newProfile.Name = name;
-      newProfile.Owner = {
-        Id: ownerId,
-        Name: session?.user?.name ?? null,
+      newProfile.name = name;
+      newProfile.owner = {
+        id: ownerId,
+        name: session?.user?.name ?? null,
       };
       setProfile(newProfile);
       setEditing(true);
@@ -56,12 +57,12 @@ export default function ProfilePageContent() {
             searchParams.get("edit") === "true" &&
             isLoggedIn &&
             ownerId &&
-            data.Owner?.Id === ownerId
+            data.owner?.id === ownerId
           ) {
             setEditing(true);
           }
         })
-        .catch((err) => setError(err.message));
+        .catch((err) => setError(getUserFriendlyError(err)));
     }
   }, [id, isNew, isLoggedIn, ownerId, session?.user?.name, searchParams]);
 
@@ -111,7 +112,7 @@ export default function ProfilePageContent() {
       router.replace(`/profile/${profileId}`);
     } catch (err) {
       setSaving(false);
-      setError(err instanceof Error ? err.message : "Failed to save");
+      setError(getUserFriendlyError(err));
     }
   }, [profile, saving, showSaveConfirm, router]);
 
@@ -124,7 +125,7 @@ export default function ProfilePageContent() {
       router.push("/profiles");
     } catch (err) {
       setDeleting(false);
-      setError(err instanceof Error ? err.message : "Failed to delete");
+      setError(getUserFriendlyError(err));
     }
   }
 
@@ -149,7 +150,7 @@ export default function ProfilePageContent() {
         setProfile(data);
         setEditing(false);
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => setError(getUserFriendlyError(err)));
   }
 
   function getSaveButtonText() {
@@ -174,7 +175,7 @@ export default function ProfilePageContent() {
     <section className="bg-white pt-5">
       <div className="text-center mb-2">
         <h3 className="fw-bolder">
-          {profile?.Name ?? "Loading..."}
+          {profile?.name ?? "Loading..."}
           {editing && profile && (
             <span className="text-danger ms-3 fs-5">
               {profile.id === null ? "New Profile" : "Editing"}
@@ -186,7 +187,7 @@ export default function ProfilePageContent() {
       {profile && (
         <>
           <div className="text-center mb-4">
-            <h5>By {profile.Owner?.Name}</h5>
+            <h5>By {profile.owner?.name}</h5>
           </div>
 
           <div className="container" style={{ maxWidth: "960px" }}>
@@ -238,14 +239,14 @@ export default function ProfilePageContent() {
                   <label className="fw-bold">Status</label>
                   <div className="btn-group">
                     <button
-                      className={`btn btn-sm ${!profile.IsPublished ? "btn-primary" : "btn-secondary"}`}
-                      onClick={() => setProfile({ ...profile, IsPublished: false })}
+                      className={`btn btn-sm ${!profile.isPublished ? "btn-primary" : "btn-secondary"}`}
+                      onClick={() => setProfile({ ...profile, isPublished: false })}
                     >
                       Draft
                     </button>
                     <button
-                      className={`btn btn-sm ${profile.IsPublished ? "btn-primary" : "btn-secondary"}`}
-                      onClick={() => setProfile({ ...profile, IsPublished: true })}
+                      className={`btn btn-sm ${profile.isPublished ? "btn-primary" : "btn-secondary"}`}
+                      onClick={() => setProfile({ ...profile, isPublished: true })}
                     >
                       Published
                     </button>
@@ -254,11 +255,27 @@ export default function ProfilePageContent() {
               )}
 
               {/* Author notes (always shown at top when present) */}
-              {profile.Notes && (
+              {profile.notes && (
                 <div className="alert alert-secondary text-black" role="alert">
-                  <b>Author note:</b> {profile.Notes}
+                  <b>Author note:</b> {profile.notes}
                 </div>
               )}
+
+              {/* Profile name (above the editor) */}
+              <div className="d-flex flex-wrap align-items-center gap-3 mb-4">
+                <label className="fw-bold">
+                  Profile name{" "}
+                  <input
+                    type="text"
+                    className="form-control d-inline-block w-auto ms-2"
+                    value={profile.name}
+                    onChange={(e) =>
+                      editing ? setProfile({ ...profile, name: e.target.value }) : undefined
+                    }
+                    disabled={!editing}
+                  />
+                </label>
+              </div>
 
               {/* Gauge editor / display */}
               <ProfileEditor
@@ -267,39 +284,25 @@ export default function ProfilePageContent() {
                 onChange={editing ? setProfile : undefined}
               />
 
-              {/* Profile name + bottom save bar */}
-              <div className="d-flex flex-wrap align-items-center gap-3 mt-4">
-                <label className="fw-bold">
-                  Profile name{" "}
-                  <input
-                    type="text"
-                    className="form-control d-inline-block w-auto ms-2"
-                    value={profile.Name}
-                    onChange={(e) =>
-                      editing ? setProfile({ ...profile, Name: e.target.value }) : undefined
-                    }
-                    disabled={!editing}
-                  />
-                </label>
-                {editing && (
-                  <>
-                    <button
-                      className={`btn btn-sm ${saving || saved ? "btn-secondary opacity-50" : "btn-success"}`}
-                      onClick={save}
-                      disabled={saving || saved}
-                    >
-                      {getSaveButtonText()}
-                    </button>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={cancelEdit}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </button>
-                  </>
-                )}
-              </div>
+              {/* Bottom save bar */}
+              {editing && (
+                <div className="d-flex flex-wrap align-items-center gap-3 mt-4">
+                  <button
+                    className={`btn btn-sm ${saving || saved ? "btn-secondary opacity-50" : "btn-success"}`}
+                    onClick={save}
+                    disabled={saving || saved}
+                  >
+                    {getSaveButtonText()}
+                  </button>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={cancelEdit}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </>
