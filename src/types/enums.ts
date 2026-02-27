@@ -10,19 +10,3 @@ export enum RangeColour {
   Yellow = 2,
   Red = 3,
 }
-
-export enum GaugeType {
-  Standard = "Standard",
-  Fuel = "Fuel",
-  Torque = "Torque",
-  Load = "Load",
-  NG = "NG",
-}
-
-export enum PublishedStatus {
-  Published = "Published",
-  Unpublished = "Unpublished",
-  PublishedOwner = "PublishedOwner",
-  UnpublishedOwner = "UnpublishedOwner",
-  All = "All",
-}

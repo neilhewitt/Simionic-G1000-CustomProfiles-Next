@@ -68,6 +68,13 @@ export function rateLimit(
 
 /**
  * Extract a best-effort client IP from a Next.js request.
+ *
+ * DEPLOYMENT REQUIREMENT: This function trusts the `x-forwarded-for` header,
+ * which can be spoofed by clients unless the app is deployed behind a trusted
+ * reverse proxy (e.g. Vercel, Cloudflare, or an Nginx/ALB proxy) that strips
+ * or overwrites the header before it reaches the application. Ensure the
+ * infrastructure is configured accordingly, or rate limiting can be bypassed
+ * by rotating spoofed header values.
  */
 export function getClientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();

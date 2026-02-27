@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { completeConversion, ValidationError, InconsistentStateError } from "@/lib/user-service";
+import { checkCommonPassword } from "@/lib/common-passwords";
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -32,6 +33,10 @@ export async function POST(request: NextRequest) {
         { error: "Password must be at least 8 characters." },
         { status: 400 }
       );
+    }
+    const commonPasswordError = checkCommonPassword(password);
+    if (commonPasswordError) {
+      return NextResponse.json({ error: commonPasswordError }, { status: 400 });
     }
 
     if (!name.trim()) {

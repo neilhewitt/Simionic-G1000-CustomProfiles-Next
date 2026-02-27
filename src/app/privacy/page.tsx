@@ -13,15 +13,24 @@ export default function PrivacyPage() {
                 Site Administrator<br />
                 Email: admin@g1000profiledb.com
               </p>
-              <p className="text-white">(This notice updated March 1 2022)</p>
+              <p className="text-white">(This notice updated February 2026)</p>
               <h4 className="text-white mt-4">The type of personal information we collect</h4>
               <p className="text-white">We currently collect and process the following types of personal information:</p>
               <p className="text-white ml-3">
-                <b>Your name</b> (as provided via the Microsoft Account you use to log into this site)<br />
-                <i>This is recorded on profiles you create that are saved to this site which are visible by any visitor to the site.</i>
+                <b>Your display name</b> (as provided by you when registering an account)<br />
+                <i>This is recorded on profiles you create that are saved to this site, which are visible to any visitor to the site.</i>
+              </p>
+              <p className="text-white ml-3">
+                <b>Your email address</b> (as provided by you when registering an account)<br />
+                <i>Used for account login and password reset. Your email address is not shared with third parties and is not displayed publicly.</i>
+              </p>
+              <p className="text-white ml-3">
+                <b>A secure hash of your password</b> (Argon2 algorithm)<br />
+                <i>Your plaintext password is never stored. Only a one-way cryptographic hash is retained, which cannot be reversed to recover your original password.</i>
               </p>
               <p className="text-white">We do not collect or store any other personal information.</p>
-              <p className="text-white">This site does not create or use any permanent cookies. Temporary cookies are used when you log in and expire after you leave the site.</p>
+              <p className="text-white">IP addresses may be used for rate limiting purposes (to prevent abuse) but are not persisted to disk or stored in the database.</p>
+              <p className="text-white">This site does not create or use any permanent cookies. Temporary session cookies are used when you log in and expire after your session ends.</p>
             </div>
           </div>
         </div>

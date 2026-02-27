@@ -1,5 +1,6 @@
 import { Profile } from "@/types";
 import { toPascalCase } from "./field-mapping";
+import sanitize from "sanitize-filename";
 
 export function exportProfileAsJson(profile: Profile): void {
   const exportData = toPascalCase<Record<string, unknown>>(profile);
@@ -14,7 +15,7 @@ export function exportProfileAsJson(profile: Profile): void {
 
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${profile.name}.json`;
+  a.download = sanitize(`${profile.name}.json`);
   a.click();
 
   URL.revokeObjectURL(url);

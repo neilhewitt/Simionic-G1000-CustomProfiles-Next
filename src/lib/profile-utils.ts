@@ -1,8 +1,6 @@
 import {
   Profile,
-  ProfileSummary,
   AircraftType,
-  PublishedStatus,
   RangeColour,
   Gauge,
   GaugeRange,
@@ -43,75 +41,6 @@ function fixRanges(gauge: Gauge): void {
   for (let i = 0; i < 4; i++) {
     gauge.ranges[i].allowDecimals = true;
   }
-}
-
-export function filterByPublished(profiles: ProfileSummary[]): ProfileSummary[] {
-  return profiles.filter((x) => x.isPublished);
-}
-
-export function filterByType(profiles: ProfileSummary[], type: AircraftType): ProfileSummary[] {
-  return profiles.filter((x) => x.aircraftType === type);
-}
-
-export function filterByEngineCount(profiles: ProfileSummary[], engines: number): ProfileSummary[] {
-  return profiles.filter((x) => x.engines === engines);
-}
-
-export function filterByOwner(profiles: ProfileSummary[], ownerId: string): ProfileSummary[] {
-  return profiles.filter((x) => x.owner?.id != null && x.owner.id === ownerId);
-}
-
-export function filterBySearch(profiles: ProfileSummary[], searchTerms: string): ProfileSummary[] {
-  if (!searchTerms?.trim()) return profiles;
-
-  const terms = searchTerms.split(/[\s,]+/);
-  let output = profiles;
-  for (const term of terms) {
-    const lower = term.toLowerCase();
-    output = output.filter(
-      (x) =>
-        (x.name && x.name.toLowerCase().includes(lower)) ||
-        (x.owner?.name && x.owner.name.toLowerCase().includes(lower)) ||
-        AircraftType[x.aircraftType]?.toLowerCase().includes(lower)
-    );
-  }
-  return output;
-}
-
-export function filterProfiles(
-  profiles: ProfileSummary[],
-  published: PublishedStatus,
-  type: AircraftType | null,
-  engines: number | null,
-  ownerId: string | null,
-  ownerOnly: boolean,
-  searchTerms: string | null
-): ProfileSummary[] {
-  let output: ProfileSummary[];
-
-  switch (published) {
-    case PublishedStatus.Unpublished:
-      output = profiles.filter((x) => !x.isPublished);
-      break;
-    case PublishedStatus.PublishedOwner:
-      output = profiles.filter((x) => x.isPublished || x.owner?.id === ownerId);
-      break;
-    case PublishedStatus.UnpublishedOwner:
-      output = profiles.filter((x) => !x.isPublished && x.owner?.id === ownerId);
-      break;
-    default:
-      output = profiles.filter((x) => x.isPublished);
-      break;
-  }
-
-  if (type != null) output = filterByType(output, type);
-  if (engines != null) output = filterByEngineCount(output, engines);
-  if (ownerId != null && ownerOnly) output = filterByOwner(output, ownerId);
-  if (searchTerms != null) output = filterBySearch(output, searchTerms);
-
-  return output.sort(
-    (a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
-  );
 }
 
 export function createDefaultGauge(

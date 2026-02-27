@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Gauge, RangeColour } from "@/types";
 
 interface GaugeDisplayProps {
@@ -32,16 +32,29 @@ function ColourIndicator({
   onChange: (index: number, colour: RangeColour) => void;
 }) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const colourName = getColourName(range.colour);
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!showDropdown) return;
+    function handleMouseDown(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [showDropdown]);
+
   return (
-    <div className="col">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
+    <div className="col" ref={dropdownRef}>
       <div
         className="profile-indicator"
         role={editing ? "button" : undefined}
         onClick={() => editing && setShowDropdown(!showDropdown)}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={`/img/${colourName}.jpg`}
           alt={colourName}
@@ -50,10 +63,10 @@ function ColourIndicator({
       </div>
       {editing && showDropdown && (
         <ul className="dropdown-menu show px-0 py-0 w100">
-          <li><div className="profile-indicator none" onClick={() => { onChange(index, RangeColour.None); setShowDropdown(false); }} /></li>
-          <li><div className="profile-indicator green" onClick={() => { onChange(index, RangeColour.Green); setShowDropdown(false); }} /></li>
-          <li><div className="profile-indicator yellow" onClick={() => { onChange(index, RangeColour.Yellow); setShowDropdown(false); }} /></li>
-          <li><div className="profile-indicator red" onClick={() => { onChange(index, RangeColour.Red); setShowDropdown(false); }} /></li>
+          <li><button type="button" className="profile-indicator none p-0 border-0 w-100" aria-label="None" onClick={() => { onChange(index, RangeColour.None); setShowDropdown(false); }} /></li>
+          <li><button type="button" className="profile-indicator green p-0 border-0 w-100" aria-label="Green" onClick={() => { onChange(index, RangeColour.Green); setShowDropdown(false); }} /></li>
+          <li><button type="button" className="profile-indicator yellow p-0 border-0 w-100" aria-label="Yellow" onClick={() => { onChange(index, RangeColour.Yellow); setShowDropdown(false); }} /></li>
+          <li><button type="button" className="profile-indicator red p-0 border-0 w-100" aria-label="Red" onClick={() => { onChange(index, RangeColour.Red); setShowDropdown(false); }} /></li>
         </ul>
       )}
     </div>
@@ -76,8 +89,18 @@ export default function GaugeDisplay({
   }
 
   function handleNumericChange(field: keyof Gauge, value: string) {
-    const num = value === "" ? 0 : Number(value);
+    if (value === "") {
+      // Allow empty string as intermediate state for nullable fields; coerce to 0 on blur
+      // Gauge.min and Gauge.max are number | null, so null is type-safe here
+      updateGauge({ [field]: null });
+      return;
+    }
+    const num = Number(value);
     if (!isNaN(num)) updateGauge({ [field]: num });
+  }
+
+  function handleNumericBlur(field: keyof Gauge, value: string) {
+    if (value === "") updateGauge({ [field]: 0 });
   }
 
   function updateRangeColour(index: number, colour: RangeColour) {
@@ -87,11 +110,23 @@ export default function GaugeDisplay({
   }
 
   function updateRangeValue(index: number, field: "min" | "max", value: string) {
-    const num = value === "" ? 0 : Number(value);
+    if (value === "") {
+      // Don't update the model while the field is empty; coerce to 0 on blur instead
+      return;
+    }
+    const num = Number(value);
     if (isNaN(num)) return;
     const newRanges = [...gauge.ranges];
     newRanges[index] = { ...newRanges[index], [field]: num };
     updateGauge({ ranges: newRanges });
+  }
+
+  function handleRangeBlur(index: number, field: "min" | "max", value: string) {
+    if (value === "") {
+      const newRanges = [...gauge.ranges];
+      newRanges[index] = { ...newRanges[index], [field]: 0 };
+      updateGauge({ ranges: newRanges });
+    }
   }
 
   function isSelectedButton(active: boolean): string {
@@ -157,6 +192,7 @@ export default function GaugeDisplay({
                   className="input-text ml-2 custom-profile-textbox"
                   value={gauge.min ?? ""}
                   onChange={(e) => handleNumericChange("min", e.target.value)}
+                  onBlur={(e) => handleNumericBlur("min", e.target.value)}
                   disabled={!editing}
                 />
                 <span>~</span>
@@ -166,6 +202,7 @@ export default function GaugeDisplay({
                   className="input-text custom-profile-textbox"
                   value={gauge.max ?? ""}
                   onChange={(e) => handleNumericChange("max", e.target.value)}
+                  onBlur={(e) => handleNumericBlur("max", e.target.value)}
                   disabled={!editing}
                 />
               </label>
@@ -280,16 +317,18 @@ export default function GaugeDisplay({
               type="number"
               step={range.allowDecimals ? "any" : "1"}
               className="input-text custom-profile-valuebox"
-              value={range.min}
+              value={range.min ?? ""}
               onChange={(e) => updateRangeValue(i, "min", e.target.value)}
+              onBlur={(e) => handleRangeBlur(i, "min", e.target.value)}
               disabled={!editing}
             />
             <input
               type="number"
               step={range.allowDecimals ? "any" : "1"}
               className="input-text custom-profile-valuebox"
-              value={range.max}
+              value={range.max ?? ""}
               onChange={(e) => updateRangeValue(i, "max", e.target.value)}
+              onBlur={(e) => handleRangeBlur(i, "max", e.target.value)}
               disabled={!editing}
             />
           </div>

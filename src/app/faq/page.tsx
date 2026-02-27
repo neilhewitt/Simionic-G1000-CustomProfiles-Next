@@ -7,6 +7,43 @@ interface FAQEntry {
   answer: string[];
 }
 
+/**
+ * Renders a paragraph that may contain simple <a> tags.
+ * This replaces dangerouslySetInnerHTML with explicit React rendering,
+ * eliminating the latent XSS risk if content were ever loaded dynamically.
+ */
+function FAQParagraph({ text }: { text: string }) {
+  const parts: React.ReactNode[] = [];
+  const linkRegex = /<a\s+href="([^"]*)"(?:\s+[^>]*)?>([^<]*)<\/a>/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const href = match[1];
+    const label = match[2];
+    const isExternal = href.startsWith("http");
+    parts.push(
+      <a
+        key={match.index}
+        href={href}
+        {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      >
+        {label}
+      </a>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return <p className="text-white">{parts}</p>;
+}
+
 const faqEntries: FAQEntry[] = [
   {
     question: "How do I use these profiles with my Simionic apps?",
@@ -19,7 +56,7 @@ const faqEntries: FAQEntry[] = [
     question: "Do I have to log in to use this site?",
     answer: [
       "No, not to search and use profiles.",
-      'However, if you want to <a href="/create">create a profile</a>, or edit a profile you have created previously, then you do need to log in using a personal Microsoft Account. To do this, click on the \'Log In\' link in the navigation bar, or when prompted to do so. Once logged in you will see an edit button appear on your profiles, and you will have access to create profiles.',
+      'However, if you want to <a href="/create">create a profile</a>, or edit a profile you have created previously, then you do need to log in. You can register for a free account using your email address and a password of your choice. Click the \'Log In\' link in the navigation bar to sign in or register a new account.',
     ],
   },
   {
@@ -35,15 +72,8 @@ const faqEntries: FAQEntry[] = [
   {
     question: "Does the site store my personal data, such as passwords?",
     answer: [
-      "The site does not store any passwords or sensitive data. All login functionality is provided via Microsoft's OpenID Connect service. The site never sees your password or personal information, except for your name (as specified in your Microsoft Account profile) and the email address that you use to log in to your Microsoft Account.",
-      "Your name is stored in the database on any profiles that you create. Your email address is not stored, instead a unique identifier is generated which is used to link the profiles you create to your Microsoft Account.",
-    ],
-  },
-  {
-    question: "Why do I have to use a Microsoft Account? Why a personal one?",
-    answer: [
-      "Microsoft Accounts are a commonly-used ID standard, alongside Google ID, Apple ID and various other providers. While we may extend the login system to support Google and other OpenID logins in the future, the Microsoft Account was the easiest provider to integrate and that's why we used it. The reason it needs to be a personal account is that using an account tied to a work or business email address means you would lose access to your profiles if you were to - for example - change jobs and lose access to that account.",
-      'If you want to use the site and don\'t have a Microsoft ID, you can easily create one <a href="https://account.microsoft.com/account" target="_blank" rel="noopener noreferrer">here</a>. You can create one for any email address you may use including Gmail, Apple etc.',
+      "The site stores the minimum data necessary to operate your account: your display name, your email address, and a secure hash of your password. Your plaintext password is never stored — only a one-way Argon2 hash is retained, which cannot be reversed to recover your original password.",
+      "Your display name is stored on any profiles that you create and is visible to other users. Your email address is used only for account management (login, password reset) and is never shared with third parties.",
     ],
   },
   {
@@ -82,11 +112,7 @@ function FAQItem({ entry, index }: { entry: FAQEntry; index: number }) {
       {isOpen && (
         <div>
           {entry.answer.map((para, i) => (
-            <p
-              key={i}
-              className="text-white"
-              dangerouslySetInnerHTML={{ __html: para }}
-            />
+            <FAQParagraph key={i} text={para} />
           ))}
         </div>
       )}
