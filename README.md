@@ -11,6 +11,11 @@ A web application for creating, editing, sharing, and exporting custom instrumen
 - **Export** profiles as `.json` files for use in the Simionic G1000 app
 - **Authentication** via Microsoft account (Azure AD) — only profile owners can edit their own profiles
 
+### Auth endpoint rate-limiting behavior
+
+- `register`, `reset-password`, `convert/complete` return `429` with `Retry-After` when throttled.
+- `forgot-password` and `convert/request` intentionally keep their normal `200` response shape when throttled (zero-disclosure), and include `Retry-After` where applicable.
+
 ## Tech Stack
 
 - **Framework:** [Next.js](https://nextjs.org/) 16 (App Router) with React 19

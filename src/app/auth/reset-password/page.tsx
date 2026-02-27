@@ -115,6 +115,7 @@ function ResetPasswordContent() {
                     id="password"
                     type="password"
                     className="form-control"
+                    autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -128,6 +129,7 @@ function ResetPasswordContent() {
                     id="confirmPassword"
                     type="password"
                     className="form-control"
+                    autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
