@@ -22,6 +22,11 @@ export default function ImportPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 1 * 1024 * 1024) {
+      setError("File is too large. Profile files should be a few kilobytes at most.");
+      return;
+    }
+
     setFileName(file.name);
     setFileChosen(true);
     setUploading(true);
@@ -59,7 +64,6 @@ export default function ImportPage() {
       }
 
       setUploading(false);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
       router.push(`/profile/${newId}?edit=true`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");

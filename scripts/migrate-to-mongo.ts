@@ -31,7 +31,7 @@ async function main() {
   console.log(`Found ${files.length} JSON files in ${DATA_DIR}`);
 
   let imported = 0;
-  const skipped = 0;
+  let skipped = 0;
   let errors = 0;
 
   for (const file of files) {
@@ -43,8 +43,13 @@ async function main() {
       const id = profile.id ?? path.basename(file, ".json");
       profile.id = id;
 
-      await collection.updateOne({ id }, { $set: profile }, { upsert: true });
-      imported++;
+      const existing = await collection.findOne({ id });
+      if (existing) {
+        skipped++;
+      } else {
+        await collection.insertOne(profile);
+        imported++;
+      }
     } catch (err) {
       console.error(`  Error importing ${file}:`, err);
       errors++;

@@ -286,6 +286,7 @@ export default function ProfilePageContent() {
                       editing ? (setProfile({ ...profile, name: e.target.value }), setDirty(true)) : undefined
                     }
                     disabled={!editing}
+                    maxLength={200}
                   />
                 </label>
               </div>

@@ -5,7 +5,7 @@ interface ErrorProps {
   reset: () => void;
 }
 
-export default function GlobalError({ error, reset }: ErrorProps) {
+export default function ErrorPage({ error, reset }: ErrorProps) {
   return (
     <main className="bg-dark py-5 vh-100">
       <div className="container px-5">
