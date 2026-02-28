@@ -1,5 +1,5 @@
 import { getDb } from "./mongodb";
-import { randomUUID, randomBytes, createHash } from "crypto";
+import { randomBytes, createHash } from "crypto";
 import { ClientSession } from "mongodb";
 
 const RESET_COLLECTION = "password_reset_codes";
@@ -106,7 +106,7 @@ export async function createConversionToken(
   await ensureConversionIndexes();
   const db = await getDb();
 
-  const token = randomUUID();
+  const token = randomBytes(32).toString("hex");
   const record: ConversionToken = {
     email: email.toLowerCase().trim(),
     tokenHash: sha256(token),

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { registerUser, ConflictError } from "@/lib/user-service";
 import { checkCommonPassword } from "@/lib/common-passwords";
+import { isValidEmail } from "@/lib/email-validator";
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     if (name.length > 200) {
       return NextResponse.json({ error: "Name must be 200 characters or fewer." }, { status: 400 });
     }
-    if (!email || typeof email !== "string") {
+    if (!isValidEmail(email)) {
       return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
     }
     if (!password || typeof password !== "string" || password.length < 8) {

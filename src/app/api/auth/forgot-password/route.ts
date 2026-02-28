@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { requestPasswordReset } from "@/lib/user-service";
+import { isValidEmail } from "@/lib/email-validator";
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 const ZERO_DISCLOSURE = { message: "If an account exists, a reset link has been sent." };
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
     const { email } = body;
 
-    if (!email || typeof email !== "string") {
+    if (!isValidEmail(email)) {
       return NextResponse.json(ZERO_DISCLOSURE);
     }
 
