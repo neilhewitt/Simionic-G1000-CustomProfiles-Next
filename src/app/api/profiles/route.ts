@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAllProfiles } from "@/lib/data-store";
+import { auth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,12 +31,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid limit parameter" }, { status: 400 });
     }
 
+    // Only serve owner-filtered (and potentially draft) results to the authenticated
+    // owner themselves. Unauthenticated callers or callers requesting another user's
+    // data always see the public (published-only) view.
+    let resolvedOwner = owner;
+    let resolvedDrafts: boolean | undefined = drafts || undefined;
+    if (owner !== undefined) {
+      const session = await auth();
+      if (session?.ownerId !== owner) {
+        resolvedOwner = undefined;
+        resolvedDrafts = undefined;
+      }
+    }
+
     const result = await getAllProfiles({
       type,
       engines,
       search,
-      owner,
-      drafts: drafts || undefined,
+      owner: resolvedOwner,
+      drafts: resolvedDrafts,
       page,
       limit,
     });
