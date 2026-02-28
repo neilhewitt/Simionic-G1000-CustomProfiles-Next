@@ -46,9 +46,12 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Forward nonce to server components via request header
+  // Forward nonce and CSP to server components via request headers.
+  // Setting content-security-policy on the request allows Next.js to
+  // automatically extract the nonce for its own internal script tags.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("content-security-policy", cspValue);
 
   const response = NextResponse.next({
     request: { headers: requestHeaders },

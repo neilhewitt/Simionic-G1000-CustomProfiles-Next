@@ -3,17 +3,20 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AuthProvider from "@/components/AuthProvider";
+import { headers } from "next/headers";
 
 export const metadata: Metadata = {
   title: "G1000 Profile DB",
   description: "Search and find custom aircraft profiles for the Simionic G1000 apps, contributed by the community.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="en">
       <head>
