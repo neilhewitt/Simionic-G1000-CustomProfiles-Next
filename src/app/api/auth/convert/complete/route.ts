@@ -42,6 +42,9 @@ export async function POST(request: NextRequest) {
     if (!name.trim()) {
       return NextResponse.json({ error: "Name is required." }, { status: 400 });
     }
+    if (name.length > 200) {
+      return NextResponse.json({ error: "Name must be 200 characters or fewer." }, { status: 400 });
+    }
 
     const result = await completeConversion(token, email, name, password);
     return NextResponse.json(result);

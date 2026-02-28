@@ -5,247 +5,133 @@
 
 ---
 
-## Summary
+## Re-review of ISSUE-1: Nonce-Based CSP
 
-The codebase is broadly in decent shape for a community web app. Auth flows are thoughtfully designed with zero-disclosure where appropriate, Zod schema validation is applied at the API boundary, and there's at least some rate limiting and CSRF protection in place. That said, there are real, exploitable security gaps, several code quality issues, and a handful of unnecessary rough edges that should be fixed. They are ranked below from most to least severe.
+**Original issue:** `'unsafe-inline'` in `script-src` Content Security Policy  
+**Re-reviewed:** 2026-02-28
 
----
+### Background (for readers unfamiliar with React/Next.js)
 
-## Issues Found
+Think of a web page as a document the server sends to your browser. Embedded in that document are JavaScript programs (`<script>` tags) that make the page interactive. A **Content Security Policy (CSP)** is an HTTP response header that tells the browser: "only run scripts from these approved sources; refuse all others." This is what stops an attacker from injecting malicious scripts into pages.
 
----
+**Nonce-based CSP** works like a one-time password: the server generates a random secret (the "nonce") for each page load and embeds it in the CSP header. Every `<script>` tag in the page must carry the same secret. The browser refuses to execute any script without the matching secret. This means even if an attacker injects a `<script>` tag, it won't run — it doesn't have the secret.
 
-### ISSUE-1 — `'unsafe-inline'` in `script-src` Content Security Policy
+**Next.js** (the framework used here) generates its own internal script tags during page rendering (for "hydration" — the process that makes the page interactive after delivery). These internal scripts need to have the nonce too. Next.js 14+ has a built-in mechanism: if the middleware sets the `content-security-policy` header on the **incoming request** (not just the outgoing response), Next.js will automatically extract the nonce from it and inject it into its own script tags. This is exactly what the middleware does.
 
-**Severity:** Critical  
-**File:** `next.config.ts`, line 12  
+### Current State
 
-```ts
-"script-src 'self' 'unsafe-inline'",
-```
+**`src/middleware.ts`** correctly:
+- Generates a cryptographically random nonce on every request
+- Builds a CSP using `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'` — **no `'unsafe-inline'`**
+- Sets the CSP on the **request** headers, triggering Next.js's automatic nonce injection into its own script tags
+- Sets `Content-Security-Policy` on the **response** headers, which the browser enforces
 
-`'unsafe-inline'` in `script-src` allows any inline `<script>` block on any page to execute. This entirely neutralises XSS protection from the CSP. If an attacker manages to inject content into any rendered page (through a stored profile name, notes, owner name, or a future feature), they can execute arbitrary JavaScript in the victim's browser.
+**`next.config.ts`** does not include a CSP header (it is handled entirely by the middleware, which is correct).
 
-Next.js requires some inline scripting for hydration, which is why this appears here. The correct fix is to implement a nonce-based CSP: Next.js generates a random nonce per request, injects it into all its own script tags, and the CSP is set to allow only scripts bearing that nonce. The `'unsafe-inline'` keyword must then be removed.
+### Verdict
 
-**Agent prompt to fix:**
+**ISSUE-1 is resolved.** `'unsafe-inline'` is gone from `script-src`. An injected `<script>` tag without the correct nonce will be blocked by the browser. The nonce mechanism is correctly implemented.
 
-> In `next.config.ts`, implement a nonce-based Content Security Policy so that `'unsafe-inline'` can be removed from the `script-src` directive.
->
-> Specifically:
-> 1. In `next.config.ts`, change the `Content-Security-Policy` value for `script-src` to `'self' 'nonce-{nonce}'` (where `{nonce}` is the placeholder that Next.js replaces at runtime). Use `'strict-dynamic'` so that scripts loaded by trusted scripts are also allowed. Remove `'unsafe-inline'` from `script-src`.
-> 2. In `src/middleware.ts`, generate a cryptographically random nonce (using `crypto.randomUUID()` or `randomBytes`) on every request, inject it into the `Content-Security-Policy` response header (replacing the `{nonce}` placeholder), and also set it as a request header (e.g. `x-nonce`) so that server components can read it.
-> 3. In `src/app/layout.tsx`, read the `x-nonce` request header and pass it to the Next.js `<Script>` component's `nonce` prop, and add `nonce={nonce}` to any inline `<script>` tags.
-> 4. Ensure the updated middleware still performs origin-check CSRF protection for mutating methods (existing behaviour must not be broken).
-> 5. Run `npm run lint` and `npm run build` and confirm they pass.
->
-> Reference: https://nextjs.org/docs/app/building-your-application/configuring/content-security-policy
+**One cleanup was applied:** `src/app/layout.tsx` previously read the `x-nonce` request header into a `const nonce` variable that was never used in any JSX (there are no `<Script>` components or inline `<script>` tags in the layout). This was dead code that caused a lint warning (`'nonce' is assigned a value but never used`). The variable and its associated `import { headers }` statement have been removed, and the layout function changed from `async` back to synchronous. The nonce mechanism is unaffected — it is fully handled by the middleware.
 
 ---
 
-### ISSUE-2 — Missing `Strict-Transport-Security` (HSTS) Header
+## Fresh Review — Issues Found
+
+---
+
+### ISSUE-1 — Authorization Bypass: Draft Profiles Accessible Without Authentication
 
 **Severity:** High  
-**File:** `next.config.ts`, `securityHeaders` array  
+**Files:** `src/app/api/profiles/route.ts`, `src/lib/data-store.ts`  
+**Status:** Fixed
 
-The security headers set `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`, but there is no `Strict-Transport-Security` header. Without HSTS, browsers will not enforce HTTPS on repeat visits, leaving the connection open to protocol downgrade (SSL-stripping) attacks where an active network attacker forces a plaintext HTTP connection to intercept credentials or session tokens.
+**What the code was doing:**
 
-**Agent prompt to fix:**
+The profile list API endpoint (`GET /api/profiles`) accepts an `owner` query parameter. When this parameter is present, the database query returns all profiles belonging to that owner — including unpublished drafts — with no authentication check.
 
-> In `next.config.ts`, add a `Strict-Transport-Security` header to the `securityHeaders` array.
->
-> The value should be `max-age=63072000; includeSubDomains; preload` (two years). Add it as the first entry in the array so it is easy to see alongside the other security headers. Do not modify any other header or any other file.
->
-> Run `npm run lint` and confirm it passes.
-
----
-
-### ISSUE-3 — Conversion Token Uses `randomUUID()` Instead of `randomBytes(32)`
-
-**Severity:** High  
-**File:** `src/lib/token-store.ts`, line 109  
+The data filtering logic in `src/lib/data-store.ts` was:
 
 ```ts
-const token = randomUUID();
-```
-
-The password reset token (line 43, same file) correctly uses `randomBytes(32).toString("hex")`, giving 256 bits of entropy. The conversion token uses `randomUUID()`, which only provides 122 bits of random entropy (UUID v4 has fixed bits for version and variant). This is inconsistent and unnecessarily weaker. For a token embedded in an email link that grants the ability to take over a user's profile ownership, there is no reason to accept less entropy than the password reset token.
-
-**Agent prompt to fix:**
-
-> In `src/lib/token-store.ts`, change the `createConversionToken` function so that the token is generated using `randomBytes(32).toString("hex")` instead of `randomUUID()`.
->
-> The import `randomUUID` at line 2 can be removed if it is no longer used anywhere else in the file; check before removing it. The only change required is to line 109: replace `const token = randomUUID();` with `const token = randomBytes(32).toString("hex");`. No other files need to change.
->
-> Run `npm run lint` and confirm it passes.
-
----
-
-### ISSUE-4 — No Server-Side Email Format Validation on Registration
-
-**Severity:** High  
-**File:** `src/app/api/auth/register/route.ts`, lines 33–35  
-
-```ts
-if (!email || typeof email !== "string") {
-  return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
+if (params.owner) {
+  if (params.drafts) {
+    andConditions.push({ IsPublished: false, "Owner.Id": params.owner });
+  } else {
+    andConditions.push({ $or: [{ IsPublished: true }, { "Owner.Id": params.owner }] });
+  }
+} else {
+  andConditions.push({ IsPublished: true });
 }
 ```
 
-The API only checks that `email` is a non-empty string. It does not validate that the value is a syntactically valid email address. An API client (bypassing the browser's `<input type="email">`) can register with any arbitrary string — `"not-an-email"`, `"a@b"`, etc. This pollutes the database and means those accounts cannot receive password-reset emails (because there is no valid address to send to). The same gap exists in `src/app/api/auth/forgot-password/route.ts` and `src/app/api/auth/convert/request/route.ts`.
-
-**Agent prompt to fix:**
-
-> Add server-side email format validation to the following API route handlers: `src/app/api/auth/register/route.ts`, `src/app/api/auth/forgot-password/route.ts`, and `src/app/api/auth/convert/request/route.ts`.
->
-> Do not add a new dependency. Use a simple, well-known RFC 5321–compatible regex such as `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`. Create a small helper function `isValidEmail(email: string): boolean` in `src/lib/user-service.ts` (or a new `src/lib/validation.ts` file) that applies this check, and call it from each route handler immediately after confirming the value is a string.
->
-> In `register/route.ts`, return a 400 with `{ error: "Valid email is required." }` if the check fails.  
-> In `forgot-password/route.ts` and `convert/request/route.ts`, which use zero-disclosure responses, return the zero-disclosure response unchanged (do not reveal whether the format was invalid — an attacker should learn nothing from the response).
->
-> Run `npm run lint` and confirm it passes.
-
----
-
-### ISSUE-5 — Artificial 1500 ms Delay in Import Page
-
-**Severity:** Medium  
-**File:** `src/app/import/page.tsx`, line 62  
+And the API route handler in `src/app/api/profiles/route.ts` passed the `owner` parameter directly from the URL to this function without checking who was making the request:
 
 ```ts
-await new Promise((resolve) => setTimeout(resolve, 1500));
+const owner = searchParams.get("owner") ?? undefined;
+// ...
+const result = await getAllProfiles({ ..., owner, drafts: drafts || undefined, ... });
 ```
 
-After a successful API upload, the code waits 1.5 seconds before redirecting to the editor. There is no technical reason for this delay; the upload is already complete. The effect is that users sit watching a spinner for a second and a half for no benefit. This is just bad UX.
+**Why this is a problem (explained simply):**
 
-**Agent prompt to fix:**
+Imagine you have a word processor that lets you save documents as "public" (anyone can read them) or "draft" (private, only you can see them). Now imagine someone can go to a specific web address — `https://yourapp.com/api/profiles?owner=YOUR_ID` — and get a list of all your documents, including your private drafts. That is exactly what this code allowed.
 
-> In `src/app/import/page.tsx`, remove the line `await new Promise((resolve) => setTimeout(resolve, 1500));` (line 62). The redirect to `/profile/${newId}?edit=true` should happen immediately after `setUploading(false)`. Do not change any other logic in the file.
->
-> Run `npm run lint` and confirm it passes.
+Any person on the internet, without logging in, could call this API URL and see the draft (unpublished) profiles of any user whose owner ID they knew. Getting the owner ID was also trivial: published profiles expose the author's `owner.id` in their data. So an attacker would:
+1. Browse the public profile list, which exposes `owner.id` for any published profile
+2. Call `GET /api/profiles?owner=<that-id>` and receive all the victim's profiles, including drafts they chose not to publish
 
----
+**The fix:**
 
-### ISSUE-6 — `error.tsx` Exports Its Component as `GlobalError`
-
-**Severity:** Medium  
-**File:** `src/app/error.tsx`, line 8  
+`src/app/api/profiles/route.ts` now checks the caller's session before allowing owner-filtered results. If the caller is not authenticated as the requested owner, the `owner` and `drafts` parameters are silently dropped and only published profiles are returned. This means the URL still works — it just returns only public data for unauthenticated or wrong-user callers — which avoids breaking any embedded links.
 
 ```ts
-export default function GlobalError({ error, reset }: ErrorProps) {
-```
-
-The file is `error.tsx` — Next.js's route-segment error boundary, not the global error page. The global error page is `global-error.tsx`. Both files happen to export a function named `GlobalError`, which is confusing and incorrect in the case of `error.tsx`. Next.js cares only about the default export, not the function name, so this does not break anything — but it makes the code misleading and harder to maintain.
-
-**Agent prompt to fix:**
-
-> In `src/app/error.tsx` only, rename the exported default function from `GlobalError` to `ErrorPage` (or just `Error`). The signature and body of the function must not change. `src/app/global-error.tsx` is correct as-is and must not be touched.
->
-> Run `npm run lint` and confirm it passes.
-
----
-
-### ISSUE-7 — Profile Name Input Has No `maxLength` Attribute
-
-**Severity:** Medium  
-**File:** `src/app/profile/[id]/ProfilePageContent.tsx`, line 282  
-
-```tsx
-<input
-  type="text"
-  className="form-control d-inline-block w-auto ms-2"
-  value={profile.name}
-  onChange={...}
-  disabled={!editing}
-/>
-```
-
-The Zod schema (`src/lib/profile-schema.ts`, line 61) enforces `max(200)` on profile names server-side, and the `<textarea>` for Notes has `maxLength={2000}`. But the profile name `<input>` has no `maxLength`, so users can type an arbitrarily long name, see it accepted by the UI, and only get an error when they hit save. This is an inconsistent, poor UX.
-
-**Agent prompt to fix:**
-
-> In `src/app/profile/[id]/ProfilePageContent.tsx`, add `maxLength={200}` to the profile name `<input>` element (around line 282). Do not change any other attribute or any other file.
->
-> Run `npm run lint` and confirm it passes.
-
----
-
-### ISSUE-8 — `convert/request` Throttle Response Missing `Retry-After` Header
-
-**Severity:** Low  
-**File:** `src/app/api/auth/convert/request/route.ts`, lines 11–13  
-
-```ts
-if (!rl.success) {
-  return NextResponse.json(ZERO_DISCLOSURE);
+let resolvedOwner = owner;
+let resolvedDrafts: boolean | undefined = drafts || undefined;
+if (owner !== undefined) {
+  const session = await auth();
+  if (session?.ownerId !== owner) {
+    resolvedOwner = undefined;
+    resolvedDrafts = undefined;
+  }
 }
 ```
 
-The `forgot-password` endpoint (which uses the same zero-disclosure pattern) correctly adds a `Retry-After: 900` header when throttled:
-
-```ts
-return NextResponse.json(ZERO_DISCLOSURE, { headers: { "Retry-After": "900" } });
-```
-
-The `convert/request` endpoint omits this header. While the 200 status is intentional, `Retry-After` is useful for well-behaved clients and automated tools to know when to retry. The inconsistency is a minor defect.
-
-**Agent prompt to fix:**
-
-> In `src/app/api/auth/convert/request/route.ts`, change the rate-limit block (lines 11–13) so that the throttled response includes a `Retry-After: 900` header, matching the pattern used in `src/app/api/auth/forgot-password/route.ts`.
->
-> Change:
-> ```ts
-> return NextResponse.json(ZERO_DISCLOSURE);
-> ```
-> to:
-> ```ts
-> return NextResponse.json(ZERO_DISCLOSURE, { headers: { "Retry-After": "900" } });
-> ```
->
-> Do not modify any other file. Run `npm run lint` and confirm it passes.
-
 ---
 
-### ISSUE-9 — Unused `skipped` Variable in Migration Script
+### ISSUE-2 — Missing `name` Max-Length Validation in Account Conversion
 
 **Severity:** Low  
-**File:** `scripts/migrate-to-mongo.ts`, line 34  
+**File:** `src/app/api/auth/convert/complete/route.ts`  
+**Status:** Fixed
+
+**What the code was doing:**
+
+The account conversion endpoint allowed a user to set a display name of arbitrary length. The validation was:
 
 ```ts
-const skipped = 0;
+if (!name.trim()) {
+  return NextResponse.json({ error: "Name is required." }, { status: 400 });
+}
 ```
 
-`skipped` is declared, never incremented, and then printed in the final summary. It will always log `Skipped: 0`. This is dead code and suggests the logic to detect and skip already-imported profiles was never implemented (or was removed and the variable left behind). The declared `const` also prevents reassignment even if someone tries to fix it.
+This only checks that the name is non-empty. It does not enforce a maximum length.
 
-**Agent prompt to fix:**
+**Why this is a problem:**
 
-> In `scripts/migrate-to-mongo.ts`, either:
-> (a) Remove the `skipped` variable entirely and remove it from the final `console.log` call, OR  
-> (b) Change `const skipped = 0` to `let skipped = 0` and add logic to detect existing documents (using `findOne({ id })`) and increment `skipped` instead of upserting when the document already exists.
->
-> Option (b) is preferred as it makes the summary log meaningful. If you implement (b), the `updateOne` upsert should become a conditional: check for an existing document first; if it exists, increment `skipped` and continue; if not, do the `insertOne`. Do not change any other file.
->
-> Run `npm run lint` and confirm it passes.
+The registration endpoint (`src/app/api/auth/register/route.ts`) correctly limits display names to 200 characters. The conversion endpoint had the same field but without the same limit, creating an inconsistency. A user going through the conversion flow could supply an arbitrarily long display name (e.g., 100,000 characters), which would be stored in the database and returned in every API response where profile owner information is included.
 
----
+**The fix:**
 
-### ISSUE-10 — No File Size Guard Before JSON.parse in Import Page
-
-**Severity:** Low  
-**File:** `src/app/import/page.tsx`, line 31  
+Added the same max-length check that already existed in the registration endpoint:
 
 ```ts
-const text = await file.text();
-const parsed = JSON.parse(text);
+if (!name.trim()) {
+  return NextResponse.json({ error: "Name is required." }, { status: 400 });
+}
+if (name.length > 200) {
+  return NextResponse.json({ error: "Name must be 200 characters or fewer." }, { status: 400 });
+}
 ```
-
-There is no check on the file size before reading its full content into memory and calling `JSON.parse`. A malicious authenticated user could upload a 500 MB JSON file and trigger a multi-second parse on the client (not a server concern since this is client-side), potentially hanging or crashing the browser tab. Legitimate profile JSON files are typically a few kilobytes.
-
-**Agent prompt to fix:**
-
-> In `src/app/import/page.tsx`, add a file size check immediately after `const file = e.target.files?.[0];`. If `file.size` exceeds 1 MB (i.e. `1 * 1024 * 1024` bytes), set an appropriate error message (`"File is too large. Profile files should be a few kilobytes at most."`) and return early without parsing. Use the existing `setError` state setter to display the error.
->
-> Do not change any other file. Run `npm run lint` and confirm it passes.
 
 ---
 
@@ -257,19 +143,15 @@ The rate limiter stores request timestamps in a module-level `Map`. This means r
 
 This is a structural limitation, not a code defect. Fixing it properly requires replacing the in-memory store with a shared, persistent store (e.g. Redis or a MongoDB TTL collection), which is a significant architectural change. This is flagged for awareness and left to the project owner to address when the deployment scale warrants it.
 
+### Manual `<link>` CSS Tags in `layout.tsx`
+
+`src/app/layout.tsx` uses `<link>` tags to include CSS files served from `/public/css/`. The Next.js linter (`@next/next/no-css-tags`) recommends importing CSS as JavaScript modules instead, which allows Next.js to handle bundling and code-splitting. However, CSS files served from `/public` cannot be imported as JavaScript modules — they are static assets that must be referenced via `<link>` tags. There is no better approach given the current file layout. Lint-disable comments have been added to suppress the spurious warnings.
+
 ---
 
 ## Checklist
 
-| # | Issue | Severity | File(s) |
-|---|-------|----------|---------|
-| 1 | `'unsafe-inline'` in `script-src` CSP | Critical | `next.config.ts` |
-| 2 | Missing HSTS header | High | `next.config.ts` |
-| 3 | Conversion token uses `randomUUID()` not `randomBytes(32)` | High | `src/lib/token-store.ts` |
-| 4 | No server-side email format validation | High | `src/app/api/auth/register/route.ts`, `forgot-password/route.ts`, `convert/request/route.ts` |
-| 5 | Artificial 1500ms delay in import | Medium | `src/app/import/page.tsx` |
-| 6 | `error.tsx` exports component named `GlobalError` | Medium | `src/app/error.tsx` |
-| 7 | Profile name input missing `maxLength` | Medium | `src/app/profile/[id]/ProfilePageContent.tsx` |
-| 8 | `convert/request` throttle missing `Retry-After` header | Low | `src/app/api/auth/convert/request/route.ts` |
-| 9 | Unused `skipped` variable in migration script | Low | `scripts/migrate-to-mongo.ts` |
-| 10 | No file size guard before `JSON.parse` in import | Low | `src/app/import/page.tsx` |
+| # | Issue | Severity | File(s) | Status |
+|---|-------|----------|---------|--------|
+| 1 | Authorization bypass: draft profiles accessible without auth | High | `src/app/api/profiles/route.ts` | Fixed |
+| 2 | Missing `name` max-length in account conversion | Low | `src/app/api/auth/convert/complete/route.ts` | Fixed |
