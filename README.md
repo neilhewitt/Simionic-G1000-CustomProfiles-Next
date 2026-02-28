@@ -9,7 +9,9 @@ A web application for creating, editing, sharing, and exporting custom instrumen
 - **Edit** gauge colour ranges, V-speeds, trim settings, flap positions, and more
 - **Import** profiles from JSON files exported by the Simionic app or other users
 - **Export** profiles as `.json` files for use in the Simionic G1000 app
-- **Authentication** via Microsoft account (Azure AD) — only profile owners can edit their own profiles
+- **Authentication** via email and password — only profile owners can edit their own profiles
+- **Password reset** via email link (15-minute expiry)
+- **Account conversion** for migrating existing Microsoft-authenticated accounts to local credentials
 
 ### Auth endpoint rate-limiting behavior
 
@@ -21,7 +23,10 @@ A web application for creating, editing, sharing, and exporting custom instrumen
 - **Framework:** [Next.js](https://nextjs.org/) 16 (App Router) with React 19
 - **Language:** TypeScript
 - **Database:** MongoDB
-- **Auth:** [NextAuth.js](https://next-auth.js.org/) with Azure AD provider
+- **Auth:** [NextAuth.js](https://next-auth.js.org/) 5 with Credentials provider (email + password)
+- **Password hashing:** Argon2
+- **Email:** Nodemailer (SMTP) for password reset and account conversion emails
+- **Validation:** Zod
 - **Styling:** Bootstrap 5 (static CSS)
 
 ## Prerequisites
@@ -39,23 +44,39 @@ npm install
 
 ### 2. Configure environment variables
 
-Create a `.env.local` file in the project root (or edit the existing one):
+Create a `.env.local` file in the project root:
 
 ```env
 # NextAuth.js
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=<generate-a-random-secret>
 
-# Azure AD (Microsoft login)
-AZURE_AD_CLIENT_ID=<your-client-id>
-AZURE_AD_CLIENT_SECRET=<your-client-secret>
-
 # MongoDB
 MONGODB_URI=mongodb://localhost:27017
 MONGODB_DB=simionic
+
+# Email (optional — defaults to fake/dev email logger if omitted)
+EMAIL_PROVIDER=smtp
+SMTP_HOST=<your-smtp-host>
+SMTP_PORT=587
+SMTP_USER=<your-smtp-user>
+SMTP_PASS=<your-smtp-password>
+SMTP_FROM=noreply@example.com
+
+# Rate limiting — set to true only when behind a trusted reverse proxy
+# (see docs/hosting.md for details)
+TRUST_PROXY=false
 ```
 
 If running MongoDB locally with default settings, the `MONGODB_URI` and `MONGODB_DB` values above are the defaults and can be omitted.
+
+Generate a secure `NEXTAUTH_SECRET` with:
+
+```bash
+openssl rand -base64 32
+```
+
+If `EMAIL_PROVIDER` is not set (or set to anything other than `smtp`), the app uses a development email logger that writes emails as `.html` files to an `email/` directory rather than sending them.
 
 ### 3. Set up MongoDB
 
@@ -67,7 +88,7 @@ mongosh --eval "db.runCommand({ ping: 1 })"
 
 You should see `{ ok: 1 }`.
 
-### 4. Migrate data into MongoDB
+### 4. Migrate data into MongoDB (optional)
 
 If you have a set of profile `.json` files, place them in the `data/` folder at the project root. Then run:
 
@@ -107,23 +128,42 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ```
 src/
-  app/                  # Next.js App Router pages and API routes
-    api/profiles/       # REST API for profile CRUD
-    api/auth/           # NextAuth.js auth endpoints
-    profile/[id]/       # Profile view & edit page
-    create/             # New profile creation
-    import/             # JSON file import
-    profiles/           # Profile list / browse
-  components/           # React components (ProfileEditor, GaugeDisplay, etc.)
-  lib/                  # Server-side utilities
-    mongodb.ts          # MongoDB client singleton
-    data-store.ts       # Data access layer (getAllProfiles, getProfile, upsertProfile)
-    auth.ts             # NextAuth.js configuration
-    profile-utils.ts    # Default profile creation & gauge fixups
-    export.ts           # Client-side JSON export
-  types/                # TypeScript interfaces & enums
+  app/                    # Next.js App Router pages and API routes
+    api/profiles/         # REST API for profile CRUD
+    api/auth/             # Auth endpoints (register, forgot-password, reset, convert)
+    auth/                 # Auth UI pages (signin, register, password reset, convert)
+    profile/[id]/         # Profile view page
+    create/               # New profile creation
+    edit/[id]/            # Profile editor
+    import/               # JSON file import
+    profiles/             # Profile list / browse
+    downloads/            # Downloads page
+  components/             # React components (ProfileEditor, GaugeDisplay, etc.)
+  lib/                    # Server-side utilities
+    mongodb.ts            # MongoDB client singleton
+    data-store.ts         # Data access layer (getAllProfiles, getProfile, upsertProfile)
+    profile-service.ts    # Business logic with typed error classes
+    user-store.ts         # User account CRUD operations
+    user-service.ts       # User business logic
+    token-store.ts        # Password reset and conversion token management
+    auth.ts               # NextAuth.js configuration (Credentials provider)
+    rate-limit.ts         # In-memory sliding-window rate limiter
+    profile-utils.ts      # Default profile creation & gauge fixups
+    profile-schema.ts     # Zod validation schemas
+    email/                # Email service abstraction (SMTP + fake implementations)
+    export.ts             # Client-side JSON export helper
+  types/                  # TypeScript interfaces & enums
+  middleware.ts           # CSP nonce generation + CSRF protection
 scripts/
-  migrate-to-mongo.ts   # Data migration script
-public/                 # Static assets (CSS, images)
-data/                   # JSON profile files (migration source)
+  migrate-to-mongo.ts     # Data migration script
+public/                   # Static assets (CSS, images)
+data/                     # JSON profile files (migration source)
 ```
+
+## Documentation
+
+Detailed documentation is available in the [`docs/`](docs/) directory:
+
+- [`docs/architecture.md`](docs/architecture.md) — System architecture, request lifecycle, and data flow (with ASCII diagrams)
+- [`docs/implementation.md`](docs/implementation.md) — In-depth implementation guide for Next.js developers
+- [`docs/hosting.md`](docs/hosting.md) — Hosting and deployment guide (single-server, PM2, Nginx, Docker)
