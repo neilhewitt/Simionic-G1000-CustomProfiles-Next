@@ -167,3 +167,7 @@ Detailed documentation is available in the [`docs/`](docs/) directory:
 - [`docs/architecture.md`](docs/architecture.md) — System architecture, request lifecycle, and data flow (with ASCII diagrams)
 - [`docs/implementation.md`](docs/implementation.md) — In-depth implementation guide for Next.js developers
 - [`docs/hosting.md`](docs/hosting.md) — Hosting and deployment guide (single-server, PM2, Nginx, Docker)
+
+## License
+
+This project is licensed under the [MIT License](LICENSE.md).
