@@ -1,0 +1,95 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Install test dependencies",
+      "detail": "Installs npm packages and Playwright browser binaries needed to run the test suite",
+      "type": "shell",
+      "command": "bash scripts/install-test-deps.sh",
+      "windows": {
+        "command": "powershell -ExecutionPolicy Bypass -File scripts\\install-test-deps.ps1"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run unit tests",
+      "detail": "Runs all pure-function unit tests (no database required)",
+      "type": "shell",
+      "command": "npm run test:unit",
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run integration tests",
+      "detail": "Runs all API route integration tests with mocked dependencies (no database required)",
+      "type": "shell",
+      "command": "npm run test:integration",
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run UI tests (Playwright)",
+      "detail": "Starts the Next.js dev server and runs all Playwright UI/end-to-end tests",
+      "type": "shell",
+      "command": "npm run test:ui",
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Show Playwright test report",
+      "detail": "Opens the HTML report from the last Playwright test run",
+      "type": "shell",
+      "command": "npm run test:ui:report",
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run all tests",
+      "detail": "Runs unit tests and integration tests (UI tests require a separate npm run test:ui)",
+      "type": "shell",
+      "command": "npm test",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
