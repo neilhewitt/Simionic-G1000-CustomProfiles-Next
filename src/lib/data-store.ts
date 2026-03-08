@@ -6,6 +6,28 @@ import { ClientSession } from "mongodb";
 
 const COLLECTION = "profiles";
 
+let profileIndexesEnsured = false;
+
+async function ensureProfileIndexes() {
+  if (profileIndexesEnsured) return;
+  const db = await getDb();
+  const col = db.collection(COLLECTION);
+  await Promise.all([
+    col.createIndex({ id: 1 }, { unique: true }),
+    col.createIndex({ "Owner.Id": 1 }),
+    col.createIndex({ IsPublished: 1, LastUpdated: -1 }),
+  ]);
+  profileIndexesEnsured = true;
+}
+
+/**
+ * Exported initialiser — called at startup via src/lib/init.ts so that
+ * indexes are created once rather than lazily before each operation.
+ */
+export async function initProfileStore(): Promise<void> {
+  await ensureProfileIndexes();
+}
+
 export interface ProfilesQueryParams {
   type?: number;
   engines?: number;

@@ -99,6 +99,13 @@ async function ensureConversionIndexes() {
  * Creates a conversion token for the given email.
  * Returns the raw token string (to include in the conversion link).
  * Only the SHA-256 hash of the token is stored in the database.
+ *
+ * The email is stored trimmed but NOT lowercased. The C# predecessor did not
+ * normalise email addresses — it used them exactly as supplied by Microsoft
+ * authentication — so the owner IDs stored in existing profiles were derived
+ * from the original casing. Preserving the casing here allows completeConversion
+ * to pass the same string to getOwnerId and correctly match those existing
+ * profile records.
  */
 export async function createConversionToken(
   email: string
@@ -108,7 +115,7 @@ export async function createConversionToken(
 
   const token = randomBytes(32).toString("hex");
   const record: ConversionToken = {
-    email: email.toLowerCase().trim(),
+    email: email.trim(),
     tokenHash: sha256(token),
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     used: false,

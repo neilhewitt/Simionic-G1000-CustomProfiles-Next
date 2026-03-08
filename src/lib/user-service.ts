@@ -114,7 +114,7 @@ export async function completeConversion(
     throw new ValidationError("Invalid or expired conversion link.");
   }
 
-  if (conversionToken.email !== email.toLowerCase().trim()) {
+  if (conversionToken.email.toLowerCase() !== email.toLowerCase().trim()) {
     throw new ValidationError("Email address does not match the conversion request.");
   }
 
@@ -129,7 +129,11 @@ export async function completeConversion(
     throw new InconsistentStateError("Conversion is in an inconsistent state. Please contact support.");
   }
 
-  const oldOwnerId = getOwnerId(email);
+  // Use the email exactly as it was stored in the conversion token (trimmed but
+  // not lowercased). The C# predecessor derived owner IDs from the email as
+  // supplied by Microsoft authentication without normalisation, so we must use
+  // the same casing to produce an owner ID that matches the existing profiles.
+  const oldOwnerId = getOwnerId(conversionToken.email);
   const passwordHash = await hashPassword(password);
 
   // Wrap all three database operations in a MongoDB multi-document transaction
