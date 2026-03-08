@@ -7,7 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "migrate": "npx tsx scripts/migrate-to-mongo.ts"
+    "migrate": "npx tsx scripts/migrate-to-mongo.ts",
+    "test:unit": "npx tsx --test --experimental-test-module-mocks src/lib/*.test.ts",
+    "test:integration": "npx tsx --test --experimental-test-module-mocks src/middleware.test.ts src/app/api/auth/register/route.test.ts src/app/api/auth/reset-password/route.test.ts src/app/api/auth/forgot-password/route.test.ts src/app/api/auth/convert/request/route.test.ts src/app/api/auth/convert/check/route.test.ts src/app/api/auth/convert/complete/route.test.ts src/app/api/profiles/route.test.ts src/app/api/profiles/profile-id-route.test.ts",
+    "test:ui": "npx playwright test",
+    "test:ui:report": "npx playwright show-report",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:install": "bash scripts/install-test-deps.sh"
   },
   "dependencies": {
     "@types/nodemailer": "^7.0.10",
@@ -22,6 +28,7 @@
     "zod": "^3.24.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
