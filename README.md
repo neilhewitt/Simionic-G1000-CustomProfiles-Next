@@ -114,6 +114,56 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### 6. Run the tests
+
+The project has three test suites. **Integration and UI tests do not require a real MongoDB connection** — all database and API calls are mocked.
+
+#### One-time setup (UI tests only)
+
+The UI tests use [Playwright](https://playwright.dev/) and need its Chromium browser binary. A helper script installs everything in one step:
+
+```bash
+npm run test:install
+```
+
+This script checks your Node.js version, runs `npm install`, downloads Chromium, and creates a `.env.local` file (if one does not already exist) with placeholder values that are sufficient to run the tests locally.
+
+#### Unit tests
+
+Tests for pure library functions (rate limiter, profile utilities, etc.):
+
+```bash
+npm run test:unit
+```
+
+#### Integration tests
+
+Tests for Next.js API routes and middleware using mocked I/O (no database or SMTP server required):
+
+```bash
+npm run test:integration
+```
+
+#### UI / end-to-end tests
+
+Playwright tests that exercise the full browser UI. The Next.js dev server is started automatically:
+
+```bash
+npm run test:ui
+```
+
+To open the Playwright HTML report after a run:
+
+```bash
+npm run test:ui:report
+```
+
+#### All tests (unit + integration)
+
+```bash
+npm test
+```
+
 ## Available Scripts
 
 | Script | Command | Description |
@@ -123,6 +173,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `start` | `npm run start` | Start the production server |
 | `lint` | `npm run lint` | Run ESLint |
 | `migrate` | `npm run migrate` | Import `.json` files from `data/` into MongoDB |
+| `test:install` | `npm run test:install` | Install test dependencies (Playwright + Chromium browser binary) |
+| `test:unit` | `npm run test:unit` | Run unit tests for library functions |
+| `test:integration` | `npm run test:integration` | Run API route and middleware integration tests (no database required) |
+| `test:ui` | `npm run test:ui` | Run Playwright UI / end-to-end tests (starts dev server automatically) |
+| `test:ui:report` | `npm run test:ui:report` | Open the Playwright HTML test report |
+| `test` | `npm test` | Run unit and integration tests |
 
 ## Project Structure
 
