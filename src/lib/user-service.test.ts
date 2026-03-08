@@ -329,6 +329,21 @@ test("requestConversion creates a token and sends email when user is not yet reg
   assert.match(body, /conv-tok-99/);
 });
 
+test("requestConversion passes email to createConversionToken preserving original casing", async () => {
+  // The email must reach createConversionToken without being lowercased. Owner IDs
+  // in the legacy C# database were derived from the email exactly as Microsoft
+  // authentication supplied it, so we must preserve the casing to allow
+  // completeConversion to reproduce the same owner ID later.
+  _findUserResult = null;
+  _createConversionTokenResult = "conv-tok-x";
+
+  await service!.requestConversion("Alice@Example.COM");
+
+  assert.equal(mockCreateConversionToken.mock.calls.length, 1);
+  const [emailArg] = mockCreateConversionToken.mock.calls[0].arguments as [string];
+  assert.equal(emailArg, "Alice@Example.COM");
+});
+
 // ---------------------------------------------------------------------------
 // completeConversion
 // ---------------------------------------------------------------------------
@@ -413,32 +428,37 @@ test("completeConversion completes successfully for a fresh token", async () => 
   assert.equal(mockMarkConversionTokenUsed.mock.calls.length, 1);
 });
 
-test("completeConversion normalises email before matching the token", async () => {
-  // Token stores email in lowercase; input email has spaces and uppercase
-  _conversionTokenResult = { email: "alice@example.com", used: false };
+test("completeConversion accepts email with different casing than the stored token email", async () => {
+  // The token stores the email as the user supplied it when requesting conversion
+  // (trimmed, not lowercased). The completion form compares case-insensitively,
+  // so the user need not re-type in the exact same case.
+  _conversionTokenResult = { email: "Alice@Example.com", used: false };
   _updateProfileOwnerResult = 0;
 
   const result = await service!.completeConversion(
-    "tok", "  ALICE@EXAMPLE.COM  ", "Alice", "Secr3t!Pass"
+    "tok", "  alice@example.com  ", "Alice", "Secr3t!Pass"
   );
   assert.match(result.message, /converted successfully/i);
 });
 
-test("completeConversion uses normalised email when computing old owner ID", async () => {
-  // getOwnerId must receive the lowercase-trimmed email so that it produces the
-  // same owner ID regardless of how the caller cased the input. Without
-  // normalisation, "ALICE@EXAMPLE.COM" would hash to a different owner ID than
-  // "alice@example.com" and profile migration would silently find 0 matches.
-  _conversionTokenResult = { email: "alice@example.com", used: false };
+test("completeConversion derives old owner ID from the token email, not the caller-supplied email", async () => {
+  // The C# predecessor did not normalise email addresses; it used them exactly
+  // as supplied by Microsoft authentication. Owner IDs stored in existing profiles
+  // were therefore derived from the original casing. We must pass conversionToken.email
+  // (the preserved-case email) to getOwnerId — NOT the caller's re-typed email —
+  // so that the derived ID actually matches the profiles in the database.
+  _conversionTokenResult = { email: "Alice@Example.com", used: false };
   _updateProfileOwnerResult = 3;
 
   await service!.completeConversion(
-    "tok", "  ALICE@EXAMPLE.COM  ", "Alice", "Secr3t!Pass"
+    "tok", "alice@example.com", "Alice", "Secr3t!Pass"
   );
 
   const calls = mockUpdateProfileOwner.mock.calls;
   assert.equal(calls.length, 1, "updateProfileOwner should be called exactly once");
   const [oldOwnerId] = calls[0].arguments as [string, ...unknown[]];
-  const expectedOldOwnerId = getOwnerId("alice@example.com");
-  assert.equal(oldOwnerId, expectedOldOwnerId, "old owner ID should be computed from the normalised email");
+  const expectedOldOwnerId = getOwnerId("Alice@Example.com"); // token's preserved casing
+  const wrongOwnerId = getOwnerId("alice@example.com");       // what normalisation would produce
+  assert.notEqual(expectedOldOwnerId, wrongOwnerId, "precondition: the two casings produce different owner IDs");
+  assert.equal(oldOwnerId, expectedOldOwnerId, "old owner ID must be derived from the token email, not the caller-supplied email");
 });
