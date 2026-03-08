@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { mock, before, beforeEach } from "node:test";
 import type * as UserServiceModule from "./user-service";
 import type { User } from "./user-store";
+import { getOwnerId } from "./owner-id";
 
 // ---------------------------------------------------------------------------
 // Configurable mock state
@@ -421,4 +422,23 @@ test("completeConversion normalises email before matching the token", async () =
     "tok", "  ALICE@EXAMPLE.COM  ", "Alice", "Secr3t!Pass"
   );
   assert.match(result.message, /converted successfully/i);
+});
+
+test("completeConversion uses normalised email when computing old owner ID", async () => {
+  // getOwnerId must receive the lowercase-trimmed email so that it produces the
+  // same owner ID regardless of how the caller cased the input. Without
+  // normalisation, "ALICE@EXAMPLE.COM" would hash to a different owner ID than
+  // "alice@example.com" and profile migration would silently find 0 matches.
+  _conversionTokenResult = { email: "alice@example.com", used: false };
+  _updateProfileOwnerResult = 3;
+
+  await service!.completeConversion(
+    "tok", "  ALICE@EXAMPLE.COM  ", "Alice", "Secr3t!Pass"
+  );
+
+  const calls = mockUpdateProfileOwner.mock.calls;
+  assert.equal(calls.length, 1, "updateProfileOwner should be called exactly once");
+  const [oldOwnerId] = calls[0].arguments as [string, ...unknown[]];
+  const expectedOldOwnerId = getOwnerId("alice@example.com");
+  assert.equal(oldOwnerId, expectedOldOwnerId, "old owner ID should be computed from the normalised email");
 });

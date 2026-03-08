@@ -129,7 +129,7 @@ export async function completeConversion(
     throw new InconsistentStateError("Conversion is in an inconsistent state. Please contact support.");
   }
 
-  const oldOwnerId = getOwnerId(email);
+  const oldOwnerId = getOwnerId(email.toLowerCase().trim());
   const passwordHash = await hashPassword(password);
 
   // Wrap all three database operations in a MongoDB multi-document transaction

@@ -62,13 +62,13 @@ test("AC-SECURITY-02: GET to /api/profiles without Origin returns non-403", asyn
 });
 
 // ---------------------------------------------------------------------------
-// AC-SECURITY-03: CSRF — NextAuth paths are excluded
+// AC-SECURITY-03: CSRF — NextAuth paths are subject to Origin check
 // ---------------------------------------------------------------------------
 
-test("AC-SECURITY-03: POST to /api/auth/callback/credentials without matching Origin is NOT rejected by middleware CSRF", async () => {
-  // NextAuth handles its own CSRF. Our middleware DOES check Origin even for
-  // /api/auth paths except /api/auth/[...nextauth] callback route.
-  // The NextAuth path pattern that must NOT be blocked is /api/auth/callback/credentials.
+test("AC-SECURITY-03: POST to /api/auth/callback/credentials with matching Origin is accepted", async () => {
+  // Our middleware applies the Origin check to all /api/ routes, including
+  // /api/auth/. When the browser submits the sign-in form from the same
+  // origin, the Origin header matches and the request is accepted.
   const req = makeRequest(
     "http://localhost:3000/api/auth/callback/credentials",
     "POST",
@@ -76,6 +76,18 @@ test("AC-SECURITY-03: POST to /api/auth/callback/credentials without matching Or
   );
   const res = middleware(req);
   assert.notEqual(res.status, 403);
+});
+
+test("AC-SECURITY-03: POST to /api/auth/callback/credentials with wrong Origin is rejected", async () => {
+  // The middleware CSRF check applies to all /api/ paths, including NextAuth
+  // callbacks. Cross-origin POST requests are blocked with 403.
+  const req = makeRequest(
+    "http://localhost:3000/api/auth/callback/credentials",
+    "POST",
+    { origin: "http://evil.example.com" }
+  );
+  const res = middleware(req);
+  assert.equal(res.status, 403);
 });
 
 // ---------------------------------------------------------------------------
