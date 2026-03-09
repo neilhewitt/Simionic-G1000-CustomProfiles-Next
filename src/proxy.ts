@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Middleware: nonce-based CSP + CSRF protection.
+ * Proxy: nonce-based CSP + CSRF protection.
  *
  * Generates a cryptographically random nonce on every request and sets the
  * Content-Security-Policy response header using it, so that 'unsafe-inline'
@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
  * NextAuth's own POST endpoints already include their own CSRF protection
  * and work correctly with the Origin header check applied here.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   const nonce = btoa(Array.from(bytes).map((b) => String.fromCharCode(b)).join(""));
 

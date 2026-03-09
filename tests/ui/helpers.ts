@@ -114,7 +114,36 @@ export async function mockUnauthenticated(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({}),
+      body: "null",
+    });
+  });
+}
+
+/**
+ * Mock the minimal NextAuth endpoints used by the client sign-in flow.
+ */
+export async function mockCredentialsAuthFlow(page: Page) {
+  await page.route("**/api/auth/providers", async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        credentials: {
+          id: "credentials",
+          name: "Credentials",
+          type: "credentials",
+          signinUrl: "http://localhost:3000/api/auth/signin/credentials",
+          callbackUrl: "http://localhost:3000/api/auth/callback/credentials",
+        },
+      }),
+    });
+  });
+
+  await page.route("**/api/auth/csrf", async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ csrfToken: "playwright-csrf-token" }),
     });
   });
 }

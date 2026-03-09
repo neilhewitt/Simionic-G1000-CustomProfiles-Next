@@ -21,19 +21,25 @@ function SignInContent() {
     setError(null);
     setLoading(true);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-      callbackUrl,
-    });
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+        callbackUrl,
+      });
 
-    setLoading(false);
-
-    if (result?.error) {
-      setError("Invalid email or password.");
-    } else if (result?.url) {
-      window.location.href = result.url;
+      if (result?.error) {
+        setError("Invalid email or password.");
+      } else if (result?.url) {
+        window.location.href = result.url;
+      } else {
+        setError("Unable to sign in right now. Please try again.");
+      }
+    } catch {
+      setError("Unable to sign in right now. Please try again.");
+    } finally {
+      setLoading(false);
     }
   }
 

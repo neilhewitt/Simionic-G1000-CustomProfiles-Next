@@ -1,0 +1,21 @@
+
+> simionic-custom-profiles-next@0.1.0 test:integration
+> npx tsx --test --experimental-test-module-mocks src/proxy.test.ts src/app/api/auth/register/route.test.ts src/app/api/auth/reset-password/route.test.ts src/app/api/auth/forgot-password/route.test.ts src/app/api/auth/convert/request/route.test.ts src/app/api/auth/convert/check/route.test.ts src/app/api/auth/convert/complete/route.test.ts src/app/api/profiles/route.test.ts src/app/api/profiles/profile-id-route.test.ts
+
+(node:7460) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+Γ£ö AC-AUTH-16: GET /api/auth/convert/check with valid token returns 200 { valid: true } (20.3463ms)
+Γ£ö AC-AUTH-17: GET /api/auth/convert/check with invalid token returns 404 (0.8988ms)
+Γ£ö AC-AUTH-17: GET /api/auth/convert/check with missing token param returns 400 (0.4475ms)
+(node:2444) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+Γ£ö AC-AUTH-18: POST /api/auth/convert/complete with valid data returns 200 with profilesMigrated (224.4924ms)
+Γ£ö AC-AUTH-19: POST /api/auth/convert/complete with already-converted token returns 200 (0.8807ms)
+Γ£ö POST /api/auth/convert/complete with invalid token returns 400 (0.7225ms)
+Γ£ö POST /api/auth/convert/complete with missing fields returns 400 (0.6204ms)
+(node:8312) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+Γ£ö AC-AUTH-15: POST /api/auth/convert/request with existing account returns 200 (zero-disclosure) (227.8874ms)
+Γ£ö AC-AUTH-15: POST /api/auth/convert/request with unknown email returns 200 (zero-disclosure) (0.736ms)
+Γ£ö AC-AUTH-15: POST /api/auth/convert/request with invalid email returns 200 (zero-disclosure) (0.634ms)
+Γ£ö forgot-password keeps zero-disclosure 200 shape when throttled (677.0739ms)

@@ -42,6 +42,7 @@ export default function ProfileFilters({
             className="input-text"
             type="text"
             id="search-box"
+            placeholder="Search profiles"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
           />

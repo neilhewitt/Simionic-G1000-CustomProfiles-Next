@@ -1,0 +1,54 @@
+
+> simionic-custom-profiles-next@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 1588.0ms
+  Running TypeScript ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/25) ...
+  Generating static pages using 11 workers (6/25) 
+  Generating static pages using 11 workers (12/25) 
+  Generating static pages using 11 workers (18/25) 
+Γ£ô Generating static pages using 11 workers (25/25) in 278.0ms
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ Γùï /about
+Γö£ ╞Æ /api/auth/[...nextauth]
+Γö£ ╞Æ /api/auth/convert/check
+Γö£ ╞Æ /api/auth/convert/complete
+Γö£ ╞Æ /api/auth/convert/request
+Γö£ ╞Æ /api/auth/forgot-password
+Γö£ ╞Æ /api/auth/register
+Γö£ ╞Æ /api/auth/reset-password
+Γö£ ╞Æ /api/profiles
+Γö£ ╞Æ /api/profiles/[id]
+Γö£ Γùï /auth/convert
+Γö£ ╞Æ /auth/convert/[token]
+Γö£ Γùï /auth/forgot-password
+Γö£ Γùï /auth/register
+Γö£ Γùï /auth/reset-password
+Γö£ Γùï /auth/signin
+Γö£ Γùï /contact
+Γö£ Γùï /create
+Γö£ Γùï /downloads
+Γö£ ╞Æ /edit/[id]
+Γö£ Γùï /faq
+Γö£ Γùï /import
+Γö£ Γùï /privacy
+Γö£ ╞Æ /profile/[id]
+Γö£ Γùï /profiles
+Γöö Γùï /terms
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

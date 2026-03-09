@@ -9,7 +9,7 @@
  *   When the user signs in successfully they are redirected to the home page.
  */
 import { test, expect } from "@playwright/test";
-import { mockUnauthenticated, OWNER_ID } from "./helpers";
+import { mockUnauthenticated, mockCredentialsAuthFlow, OWNER_ID } from "./helpers";
 
 test.describe("AC-UI-13: Registration page — client-side validation", () => {
   test.beforeEach(async ({ page }) => {
@@ -27,7 +27,7 @@ test.describe("AC-UI-13: Registration page — client-side validation", () => {
     await page.getByRole("button", { name: /create account/i }).click();
 
     // A client-side error message should appear in the same page
-    await expect(page.getByRole("alert")).toContainText(/8 characters/i, { timeout: 5_000 });
+    await expect(page.locator(".alert.alert-danger")).toContainText(/8 characters/i, { timeout: 5_000 });
     // URL should not have changed
     expect(page.url()).toContain("/auth/register");
   });
@@ -41,7 +41,7 @@ test.describe("AC-UI-13: Registration page — client-side validation", () => {
     await page.getByLabel("Confirm password").fill("DifferentPass1!");
     await page.getByRole("button", { name: /create account/i }).click();
 
-    await expect(page.getByRole("alert")).toContainText(/do not match/i, { timeout: 5_000 });
+    await expect(page.locator(".alert.alert-danger")).toContainText(/do not match/i, { timeout: 5_000 });
     expect(page.url()).toContain("/auth/register");
   });
 
@@ -59,6 +59,7 @@ test.describe("AC-UI-13: Registration page — client-side validation", () => {
 test.describe("AC-UI-14: Sign-in page — redirects after success", () => {
   test.beforeEach(async ({ page }) => {
     await mockUnauthenticated(page);
+    await mockCredentialsAuthFlow(page);
   });
 
   test("AC-UI-14: after a successful sign-in the user is redirected away from /auth/signin", async ({ page }) => {
@@ -68,7 +69,7 @@ test.describe("AC-UI-14: Sign-in page — redirects after success", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ url: "/" }),
+        body: JSON.stringify({ url: "http://localhost:3000/" }),
       });
     });
 
@@ -110,7 +111,7 @@ test.describe("AC-UI-14: Sign-in page — redirects after success", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ error: "CredentialsSignin" }),
+        body: JSON.stringify({ url: "http://localhost:3000/auth/signin?error=CredentialsSignin" }),
       });
     });
 
@@ -119,7 +120,7 @@ test.describe("AC-UI-14: Sign-in page — redirects after success", () => {
     await page.getByLabel("Password").fill("wrongpassword");
     await page.getByRole("button", { name: /sign in/i }).click();
 
-    await expect(page.getByRole("alert")).toContainText(/invalid email or password/i, { timeout: 5_000 });
+    await expect(page.locator(".alert.alert-danger")).toContainText(/invalid email or password/i, { timeout: 5_000 });
     expect(page.url()).toContain("/auth/signin");
   });
 });

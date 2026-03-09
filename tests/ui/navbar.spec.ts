@@ -45,7 +45,7 @@ test.describe("AC-UI-10: Navbar — authenticated", () => {
     await userMenuBtn.click();
 
     // Alice's name should appear in the dropdown
-    await expect(page.getByText("Alice")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Alice" })).toBeVisible();
   });
 
   test("AC-UI-10: navbar dropdown contains a Log out button", async ({ page }) => {

@@ -109,7 +109,6 @@ export default function RegisterPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={8}
                   />
                   <div className="form-text text-light">At least 8 characters.</div>
                 </div>
