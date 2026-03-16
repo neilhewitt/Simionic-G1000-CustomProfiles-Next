@@ -209,7 +209,7 @@ src/
     email/                # Email service abstraction (SMTP + fake implementations)
     export.ts             # Client-side JSON export helper
   types/                  # TypeScript interfaces & enums
-  middleware.ts           # CSP nonce generation + CSRF protection
+  proxy.ts              # CSP nonce generation + CSRF protection
 scripts/
   migrate-to-mongo.ts     # Data migration script
 public/                   # Static assets (CSS, images)

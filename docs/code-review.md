@@ -10,37 +10,11 @@
 
 The codebase is well-structured with a clear three-layer architecture (API routes → Services → Data stores) and has numerous security-conscious design decisions in place: Argon2id password hashing, token hashing, zero-disclosure endpoints, and rate limiting on most auth flows. There is meaningful test coverage.
 
-However, several issues were found, ranging from a critical missing security layer to minor design nits. They are ranked below from most to least severe. This document proposes a remediation plan and asks the owner to decide which items to address.
+Several issues were found, ranging from high-severity access control gaps to minor design nits. They are ranked below from most to least severe. This document proposes a remediation plan and asks the owner to decide which items to address.
 
 ---
 
 ## Issues Ranked by Severity
-
----
-
-### 🔴 CRITICAL
-
----
-
-#### C-1. `src/proxy.ts` is not wired up as Next.js middleware — CSRF and CSP are never applied in production
-
-The CSRF Origin-header check and per-request CSP nonce generation are both implemented correctly in `src/proxy.ts` and covered by tests in `src/proxy.test.ts`. However, **Next.js only invokes middleware from a file named `middleware.ts`** (or `middleware.js`) at the `src/` root. No such file exists. The `proxy` function is never called by the framework at runtime, so neither protection is actually active in a running application.
-
-Specifically:
-- `proxy.ts` exports `proxy` as a *named* export (not a default export), and a `config` matcher object.
-- For Next.js to call it automatically, the file must be named `middleware.ts` and the function must be the **default export**.
-- No file in the project imports `proxy.ts` or re-exports it as `middleware.ts`.
-
-**CSRF impact:** Without the Origin header check being applied, cross-origin requests are not blocked. The session cookie's `SameSite=Lax` flag provides partial protection (prevents cookies being sent in cross-origin `fetch()`/XHR calls), but cross-site form POST navigations do send the cookie under `Lax`.
-
-**CSP impact:** No `Content-Security-Policy` header is set on real responses. React prevents most DOM-based XSS, but a missing CSP removes a layer of defence-in-depth.
-
-**Plan:**
-- Create `src/middleware.ts` that imports `proxy` from `./proxy` and re-exports it as the default export:
-  ```typescript
-  export { proxy as default, config } from "./proxy";
-  ```
-  This wires the existing, tested implementation into Next.js with no logic changes required.
 
 ---
 
@@ -284,7 +258,6 @@ The following were considered and found to be acceptable as-is:
 
 | # | Severity | Issue | Effort |
 |---|----------|-------|--------|
-| C-1 | 🔴 Critical | Wire `proxy.ts` into Next.js via `src/middleware.ts` | Low |
 | H-1 | 🔴 High | Access control: hide draft profiles from non-owners | Low |
 | H-2 | 🔴 High | Rate-limit the sign-in endpoint | Medium |
 | H-3 | 🔴 High | Add SRI hash to Bootstrap Icons CDN link | Low |
@@ -304,12 +277,10 @@ The following were considered and found to be acceptable as-is:
 
 ## Questions for the Owner
 
-1. **C-1 (middleware):** The fix is simple — create `src/middleware.ts` that re-exports `proxy` as the default export and re-exports `config`. No logic changes to `proxy.ts` are needed. Shall this be done?
+1. **H-1 (draft visibility):** Should the `GET /api/profiles/[id]` endpoint return `404` for drafts the caller doesn't own (hiding their existence), or `403` (admitting they exist but are private)? `404` is the more security-conscious choice.
 
-2. **H-1 (draft visibility):** Should the `GET /api/profiles/[id]` endpoint return `404` for drafts the caller doesn't own (hiding their existence), or `403` (admitting they exist but are private)? `404` is the more security-conscious choice.
+2. **H-2 (sign-in rate limit):** A per-IP rate limit is straightforward but relies on `TRUST_PROXY` being set correctly. Would you prefer a per-email lockout approach instead (requires tracking failed attempts in the database)?
 
-3. **H-2 (sign-in rate limit):** A per-IP rate limit is straightforward but relies on `TRUST_PROXY` being set correctly. Would you prefer a per-email lockout approach instead (requires tracking failed attempts in the database)?
+3. **H-3 (SRI):** Should the Bootstrap Icons CSS be hosted locally (removes CDN dependency entirely) or should just the `integrity` hash be added?
 
-4. **H-3 (SRI):** Should the Bootstrap Icons CSS be hosted locally (removes CDN dependency entirely) or should just the `integrity` hash be added?
-
-5. **Priority:** Which of the above issues would you like addressed, and in what order? All Critical and High items are strongly recommended. The Medium items are good practice. The Low items are optional polish.
+4. **Priority:** Which of the above issues would you like addressed, and in what order? All High items are strongly recommended. The Medium items are good practice. The Low items are optional polish.
