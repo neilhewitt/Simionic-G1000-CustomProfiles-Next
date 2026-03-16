@@ -22,18 +22,25 @@ However, several issues were found, ranging from a critical missing security lay
 
 ---
 
-#### C-1. `src/middleware.ts` does not exist — CSRF protection and CSP are absent
+#### C-1. `src/proxy.ts` is not wired up as Next.js middleware — CSRF and CSP are never applied in production
 
-The project specification (in the Copilot instructions and `docs/implementation.md`) states that `src/middleware.ts` must check the `Origin` header on all mutating API calls (`POST`, `PUT`, `DELETE`, `PATCH` to `/api/*`) for CSRF protection, and must generate a per-request nonce for the `Content-Security-Policy` header. **Neither of these things exists in the codebase.**
+The CSRF Origin-header check and per-request CSP nonce generation are both implemented correctly in `src/proxy.ts` and covered by tests in `src/proxy.test.ts`. However, **Next.js only invokes middleware from a file named `middleware.ts`** (or `middleware.js`) at the `src/` root. No such file exists. The `proxy` function is never called by the framework at runtime, so neither protection is actually active in a running application.
 
-**CSRF impact:** Without the Origin header check, cross-origin requests can be forged. The session cookie is `SameSite=Lax`, which prevents cookies from being sent in cross-origin `fetch()`/XHR calls, so the practical risk is low in most browser environments. However, `SameSite=Lax` has known edge cases (e.g. cross-origin form POST navigations via `<form method="POST">` DO send the cookie), and defence-in-depth via the Origin header is standard practice. The spec explicitly requires this.
+Specifically:
+- `proxy.ts` exports `proxy` as a *named* export (not a default export), and a `config` matcher object.
+- For Next.js to call it automatically, the file must be named `middleware.ts` and the function must be the **default export**.
+- No file in the project imports `proxy.ts` or re-exports it as `middleware.ts`.
 
-**CSP impact:** No `Content-Security-Policy` header is sent anywhere. The app loads Bootstrap Icons from an external CDN (`cdn.jsdelivr.net`) and uses Bootstrap CSS from local files. Without a CSP, browsers offer no XSS mitigation. React prevents most DOM-based XSS, but a missing CSP is still a gap in any defence-in-depth strategy.
+**CSRF impact:** Without the Origin header check being applied, cross-origin requests are not blocked. The session cookie's `SameSite=Lax` flag provides partial protection (prevents cookies being sent in cross-origin `fetch()`/XHR calls), but cross-site form POST navigations do send the cookie under `Lax`.
+
+**CSP impact:** No `Content-Security-Policy` header is set on real responses. React prevents most DOM-based XSS, but a missing CSP removes a layer of defence-in-depth.
 
 **Plan:**
-- Implement `src/middleware.ts` that runs on the Edge runtime and:
-  1. Checks the `Origin` (or `Referer`) header on `POST`, `PUT`, `DELETE`, `PATCH` requests to `/api/*` and returns `403` if the origin doesn't match the configured `APP_URL`.
-  2. Generates a per-request random `nonce` and sets a strict `Content-Security-Policy` header using that nonce. The nonce must be injected into `<script>` tags in the layout (via `headers()` or a server component) so that Next.js-generated scripts still execute.
+- Create `src/middleware.ts` that imports `proxy` from `./proxy` and re-exports it as the default export:
+  ```typescript
+  export { proxy as default, config } from "./proxy";
+  ```
+  This wires the existing, tested implementation into Next.js with no logic changes required.
 
 ---
 
@@ -277,7 +284,7 @@ The following were considered and found to be acceptable as-is:
 
 | # | Severity | Issue | Effort |
 |---|----------|-------|--------|
-| C-1 | 🔴 Critical | Implement `src/middleware.ts` (CSRF + CSP) | High |
+| C-1 | 🔴 Critical | Wire `proxy.ts` into Next.js via `src/middleware.ts` | Low |
 | H-1 | 🔴 High | Access control: hide draft profiles from non-owners | Low |
 | H-2 | 🔴 High | Rate-limit the sign-in endpoint | Medium |
 | H-3 | 🔴 High | Add SRI hash to Bootstrap Icons CDN link | Low |
@@ -297,7 +304,7 @@ The following were considered and found to be acceptable as-is:
 
 ## Questions for the Owner
 
-1. **C-1 (middleware):** Should the middleware be implemented fully (CSRF + CSP with nonce), or just one of the two? The CSP nonce approach requires changes to `layout.tsx` to inject the nonce into `<script>` tags, which is non-trivial. Do you want the full implementation or just the Origin-header CSRF check to begin with?
+1. **C-1 (middleware):** The fix is simple — create `src/middleware.ts` that re-exports `proxy` as the default export and re-exports `config`. No logic changes to `proxy.ts` are needed. Shall this be done?
 
 2. **H-1 (draft visibility):** Should the `GET /api/profiles/[id]` endpoint return `404` for drafts the caller doesn't own (hiding their existence), or `403` (admitting they exist but are private)? `404` is the more security-conscious choice.
 
