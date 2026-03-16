@@ -524,7 +524,7 @@ See §6 above for business rules. HTTP interface summary:
 
 ### 8.1 CSRF Protection
 
-Implemented in `src/middleware.ts`:
+Implemented in `src/proxy.ts`:
 
 - For every **mutating** API request (POST, PUT, DELETE, PATCH), the middleware
   checks that the `Origin` header matches the server's own origin.

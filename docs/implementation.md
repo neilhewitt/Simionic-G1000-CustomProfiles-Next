@@ -622,7 +622,7 @@ TTL indexes on `expiresAt` cause MongoDB to automatically delete expired documen
 
 ## Middleware
 
-`src/middleware.ts` runs at the Edge runtime (before every request, excluding static assets).
+`src/proxy.ts` runs at the Edge runtime (before every request, excluding static assets).
 
 ### CSP nonce generation
 

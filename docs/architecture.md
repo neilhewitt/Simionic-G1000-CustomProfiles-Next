@@ -174,7 +174,7 @@ project-root/
 |   |   +-- index.ts                Re-exports
 |   |   +-- next-auth.d.ts          Session type augmentation
 |   |
-|   +-- middleware.ts               Edge middleware (CSP + CSRF)
+|   +-- proxy.ts                   Edge middleware (CSP + CSRF)
 |   +-- instrumentation.ts          Startup hook (DB index init)
 |
 +-- scripts/
@@ -202,7 +202,7 @@ Browser
   |
   | GET /profiles?type=0
   v
-Middleware (src/middleware.ts)
+Middleware (src/proxy.ts)
   |  1. Generate 16-byte random nonce
   |  2. Build CSP header string including nonce
   |  3. Attach x-nonce + content-security-policy to request headers
@@ -230,7 +230,7 @@ Browser
   | Origin: https://example.com
   | Content-Type: application/json
   v
-Middleware (src/middleware.ts)
+Middleware (src/proxy.ts)
   |  CSRF check: origin header must match request.nextUrl.origin
   |  If mismatch -> return 403 Forbidden
   v
@@ -443,7 +443,7 @@ Indexes are created at startup via `src/instrumentation.ts` → `src/lib/init.ts
 
 ### Middleware (Edge)
 
-`src/middleware.ts` runs on every request (excluding `_next/static`, `_next/image`, `favicon.ico`):
+`src/proxy.ts` runs on every request (excluding `_next/static`, `_next/image`, `favicon.ico`):
 
 1. **CSP nonce**: Generates a 16-byte cryptographically random nonce per request. Injects it into the `Content-Security-Policy` header with `script-src 'nonce-{nonce}' 'strict-dynamic'`. This avoids `unsafe-inline` for scripts while still allowing Next.js internal scripts.
 
