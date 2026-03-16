@@ -98,7 +98,7 @@ project-root/
 |   |   |       |   +-- route.ts    POST /api/auth/reset-password
 |   |   |       +-- convert/
 |   |   |           +-- check/
-|   |   |           |   +-- route.ts  POST /api/auth/convert/check
+|   |   |           |   +-- route.ts  GET /api/auth/convert/check
 |   |   |           +-- request/
 |   |   |           |   +-- route.ts  POST /api/auth/convert/request
 |   |   |           +-- complete/
@@ -152,7 +152,7 @@ project-root/
 |   |   +-- auth.ts                 NextAuth configuration
 |   |   +-- rate-limit.ts           In-memory sliding-window rate limiter
 |   |   +-- password.ts             Argon2 hash + verify
-|   |   +-- email-validator.ts      RFC-compliant email validation
+|   |   +-- email-validator.ts      Practical email validation
 |   |   +-- common-passwords.ts     Common password blocklist loader
 |   |   +-- profile-schema.ts       Zod schema for profile validation
 |   |   +-- profile-utils.ts        Default profile factory + gauge fixup
@@ -237,7 +237,7 @@ Middleware (src/proxy.ts)
 API Route Handler (app/api/profiles/[id]/route.ts)
   |  1. Call auth() to get session from JWT cookie
   |  2. Validate session (401 if missing)
-  |  3. Parse and validate request body with Zod schema
+  |  3. Parse request body as JSON
   |  4. Call profile-service.saveProfile()
   v
 profile-service.ts
@@ -310,6 +310,8 @@ Authentication uses NextAuth.js 5 (beta) with a single Credentials provider (ema
 ### Session strategy
 
 NextAuth uses JWT sessions (no database session table). The JWT is stored in an HTTP-only cookie managed by NextAuth.
+
+The catch-all route at `src/app/api/auth/[...nextauth]/route.ts` wraps NextAuth's POST handler in a per-IP rate limit of 10 requests per 15 minutes.
 
 ```
 User submits login form
@@ -435,7 +437,7 @@ Owner: {
 
 ### Index initialization
 
-Indexes are created at startup via `src/instrumentation.ts` → `src/lib/init.ts`, which calls `initUserStore()` and `initTokenStore()`. This ensures indexes exist before any request is served. Profile collection indexes are created by the migration script and are not re-created at runtime.
+Indexes are created at startup via `src/instrumentation.ts` → `src/lib/init.ts`, which calls `initUserStore()`, `initTokenStore()`, and `initProfileStore()`. This ensures indexes exist before any request is served.
 
 ---
 
@@ -472,6 +474,7 @@ IP extraction for rate limiting requires the `TRUST_PROXY=true` environment vari
 ### Password security
 
 - Passwords are hashed with Argon2 (argon2id variant) before storage.
+- Passwords must be between 8 and 1024 characters.
 - Common passwords are checked against a blocklist during registration.
 - Password reset tokens are 32 random bytes, stored only as SHA-256 hashes, and expire after 15 minutes.
 - Conversion tokens are 32 random bytes, stored only as SHA-256 hashes, and expire after 24 hours.

@@ -5,27 +5,9 @@ import { getEmailService } from "./email";
 import { getOwnerId } from "./owner-id";
 import { updateProfileOwner } from "./data-store";
 import clientPromise from "./mongodb";
+import { ConflictError, InconsistentStateError, ValidationError } from "./errors";
 
-export class ConflictError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ConflictError";
-  }
-}
-
-export class ValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ValidationError";
-  }
-}
-
-export class InconsistentStateError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "InconsistentStateError";
-  }
-}
+export { ConflictError, InconsistentStateError, ValidationError } from "./errors";
 
 export async function registerUser(
   name: string,
@@ -133,7 +115,7 @@ export async function completeConversion(
   // not lowercased). The C# predecessor derived owner IDs from the email as
   // supplied by Microsoft authentication without normalisation, so we must use
   // the same casing to produce an owner ID that matches the existing profiles.
-  const oldOwnerId = getOwnerId(conversionToken.email);
+  const oldOwnerId = await getOwnerId(conversionToken.email);
   const passwordHash = await hashPassword(password);
 
   // Wrap all three database operations in a MongoDB multi-document transaction

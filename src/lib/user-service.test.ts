@@ -457,8 +457,8 @@ test("completeConversion derives old owner ID from the token email, not the call
   const calls = mockUpdateProfileOwner.mock.calls;
   assert.equal(calls.length, 1, "updateProfileOwner should be called exactly once");
   const [oldOwnerId] = calls[0].arguments as [string, ...unknown[]];
-  const expectedOldOwnerId = getOwnerId("Alice@Example.com"); // token's preserved casing
-  const wrongOwnerId = getOwnerId("alice@example.com");       // what normalisation would produce
+  const expectedOldOwnerId = await getOwnerId("Alice@Example.com"); // token's preserved casing
+  const wrongOwnerId = await getOwnerId("alice@example.com");       // what normalisation would produce
   assert.notEqual(expectedOldOwnerId, wrongOwnerId, "precondition: the two casings produce different owner IDs");
   assert.equal(oldOwnerId, expectedOldOwnerId, "old owner ID must be derived from the token email, not the caller-supplied email");
 });

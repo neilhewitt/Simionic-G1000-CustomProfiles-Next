@@ -1,5 +1,6 @@
-import { readFileSync } from "fs";
-import { join } from "path";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * Common passwords blocklist loaded from a static file at module initialisation.
@@ -7,10 +8,10 @@ import { join } from "path";
  * Passwords on this list are rejected during registration and password change.
  */
 let COMMON_PASSWORDS: Set<string>;
+const COMMON_PASSWORDS_FILE = join(dirname(fileURLToPath(import.meta.url)), "common-passwords.txt");
 
 try {
-  const filePath = join(process.cwd(), "src/lib/common-passwords.txt");
-  const contents = readFileSync(filePath, "utf-8");
+  const contents = readFileSync(COMMON_PASSWORDS_FILE, "utf-8");
   COMMON_PASSWORDS = new Set(
     contents
       .split("\n")
@@ -18,6 +19,7 @@ try {
       .filter(Boolean)
   );
 } catch {
+  console.warn("common-passwords.txt not found; using minimal fallback blocklist.");
   // Fallback minimal list if the file cannot be read (e.g. unexpected build layout)
   COMMON_PASSWORDS = new Set([
     "password", "password1", "password123", "passw0rd", "p@ssword",

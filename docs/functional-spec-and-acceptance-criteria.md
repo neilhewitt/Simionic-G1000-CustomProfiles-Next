@@ -176,7 +176,7 @@ User {
 
 ### 3.5 Reset & Conversion Tokens
 
-**Reset tokens** (collection `reset_codes`):
+**Reset tokens** (collection `password_reset_codes`):
 
 ```
 ResetCode {
@@ -191,10 +191,10 @@ ResetCode {
 
 ```
 ConversionToken {
-  email:     string
-  token:     string      // plaintext UUID (not hashed; direct lookup)
-  expiresAt: Date        // now + 24 hours
-  used:      boolean
+  email:      string
+  tokenHash:  string     // SHA-256 of the plaintext token
+  expiresAt:  Date       // now + 24 hours
+  used:       boolean
 }
 ```
 
@@ -291,6 +291,7 @@ ConversionToken {
   - Name: required, non-empty after trim.
   - Email: must be a valid email address.
   - Password: minimum 8 characters; must not be in the common passwords list.
+  - Password: maximum 1024 characters.
 - Passwords are hashed with **Argon2** before storage.
 - User creation is **idempotent** (handles concurrent race conditions safely).
 - If the email already exists, returns HTTP 409 with a descriptive message.
@@ -305,6 +306,7 @@ ConversionToken {
 - Password verified using Argon2.
 - On success, creates a **JWT session** containing `ownerId` and user name.
 - Wrong credentials return a generic error (no disclosure of whether email exists).
+- Rate limited: 10 requests per 15 minutes per IP.
 - Session is passed via cookies; `useSession()` / `auth()` accessible from
   client and server components respectively.
 
@@ -320,7 +322,7 @@ Two-step flow:
 **Step 1 – Request** (`POST /api/auth/forgot-password`):
 - Accepts `{ email }`.
 - Looks up the user; if not found, returns success anyway (**zero-disclosure**).
-- If found, generates a random token, stores its SHA-256 hash in `reset_codes`,
+- If found, generates a random token, deletes any still-valid unused reset tokens for the same email, stores the new token's SHA-256 hash in `password_reset_codes`,
   and sends an email with the reset link (`/auth/reset-password?token=…&email=…`).
 - Token expires in **15 minutes**.
 - Returns HTTP 200 with a generic message regardless of outcome.
@@ -329,7 +331,7 @@ Two-step flow:
 **Step 2 – Reset** (`POST /api/auth/reset-password`):
 - Accepts `{ email, token, password }`.
 - Validates the token hash against the stored hash (checking expiry and `used` flag).
-- Validates the new password (≥8 chars, not common).
+- Validates the new password (8–1024 chars, not common).
 - Marks the token as used.
 - Updates the user's Argon2 password hash.
 - Returns HTTP 200 on success.
@@ -345,7 +347,7 @@ account while retaining all their existing profiles.
 - Accepts `{ email }`.
 - If a local account already exists for the email, returns success with no action
   (**zero-disclosure**).
-- If no local account exists, generates a conversion token (UUID), stores it in
+- If no local account exists, generates a conversion token, stores only its SHA-256 hash in
   `conversion_tokens`, and sends an email with the conversion link
   (`/auth/convert/[token]`).
 - Token expires in **24 hours**.
@@ -354,10 +356,12 @@ account while retaining all their existing profiles.
 **Step 2 – Check** (`GET /api/auth/convert/check?token=…`):
 - Returns HTTP 200 `{ valid: true }` if the token is found, unexpired, and unused.
 - Returns HTTP 404 if the token is invalid, expired, or already used.
+- Rate limited: 20 requests per 15 minutes per IP.
 
 **Step 3 – Complete** (`POST /api/auth/convert/complete`):
 - Accepts `{ token, email, name, password }`.
 - Validates the token matches the email.
+- Validates the password (8–1024 chars, not common).
 - If the token was already used and a matching user exists, returns success
   (idempotent retry).
 - Otherwise:
@@ -392,6 +396,7 @@ Microsoft-auth system to associate profiles with a user identity.
 - Server sets `lastUpdated` to the current ISO timestamp.
 - Profile stored in MongoDB `profiles` collection.
 - Fields stored in **PascalCase** in MongoDB; returned in **camelCase** via API.
+- Returns HTTP 201 `{ success: true }` on create.
 
 ### 6.2 Reading a Profile
 
@@ -400,8 +405,8 @@ Microsoft-auth system to associate profiles with a user identity.
   - Forces `manifoldPressure`, `fuelFlow`, `oilPressure` and their ranges to
     have `allowDecimals = true`.
   - Backfills missing `id` fields on gauge ranges with new UUIDs.
-- Profiles with `isPublished = false` are still accessible via direct URL
-  (there is no access restriction on the read endpoint itself).
+- Published profiles are visible to everyone.
+- Draft profiles (`isPublished = false`) are visible only to their owner; non-owners receive HTTP 404.
 
 ### 6.3 Updating a Profile
 
@@ -411,6 +416,7 @@ Microsoft-auth system to associate profiles with a user identity.
 - Checks ownership: if a profile with this ID already exists and its owner differs
   from the session user, returns HTTP 403.
 - On success, sets `owner` from session and `lastUpdated` to now; upserts the document.
+- Returns HTTP 200 on update and HTTP 201 on create.
 
 ### 6.4 Deleting a Profile
 
@@ -418,6 +424,7 @@ Microsoft-auth system to associate profiles with a user identity.
 - Requires valid session (HTTP 401 if missing).
 - Profile must exist (HTTP 404 if not).
 - Session user must be the owner (HTTP 403 if not).
+- Returns HTTP 204 with no response body on success.
 - Returns HTTP 200 `{ success: true }` on success.
 
 ### 6.5 Listing/Searching Profiles
@@ -504,8 +511,8 @@ See §6 above for business rules. HTTP interface summary:
 |--------|------|------|---------------|
 | GET | `/api/profiles` | No | 200 |
 | GET | `/api/profiles/[id]` | No | 200 |
-| POST | `/api/profiles/[id]` | Yes | 200 |
-| DELETE | `/api/profiles/[id]` | Yes | 200 |
+| POST | `/api/profiles/[id]` | Yes | 200 or 201 |
+| DELETE | `/api/profiles/[id]` | Yes | 204 |
 
 ### 7.4 Auth API Endpoints
 
@@ -529,15 +536,14 @@ Implemented in `src/proxy.ts`:
 - For every **mutating** API request (POST, PUT, DELETE, PATCH), the middleware
   checks that the `Origin` header matches the server's own origin.
 - Requests without a matching Origin are rejected with HTTP 403.
-- NextAuth-owned paths (`/api/auth/[...nextauth]`) are **excluded** from CSRF
-  checks (NextAuth applies its own CSRF token mechanism).
+- NextAuth-owned paths are **not excluded** from this Origin check; their POST
+  requests must still present a matching `Origin` header.
 - Safe methods (GET, HEAD, OPTIONS) are always passed through.
 
 ### 8.2 Content Security Policy (CSP)
 
 - A random nonce is generated on every request.
 - The CSP header is set with `script-src 'nonce-{value}' 'strict-dynamic'`.
-- Allows Bootstrap icon CDN resources (fonts/CSS).
 - Nonce is passed via response header and available to Next.js server components.
 
 ### 8.3 Other Security Headers
@@ -553,6 +559,7 @@ Set by `next.config.ts`:
 ### 8.4 Password Policy
 
 - Minimum 8 characters.
+- Maximum 1024 characters.
 - Must not appear in `common-passwords.ts` list.
 - Hashed with Argon2 (memory-hard algorithm).
 
@@ -563,7 +570,7 @@ All email addresses are lowercased and trimmed before lookup or storage.
 ### 8.6 Token Security
 
 - Password reset tokens: stored as **SHA-256 hash**, never plaintext.
-- Conversion tokens: stored as plaintext UUID (used for direct URL lookup).
+- Conversion tokens: stored as **SHA-256 hash**, never plaintext.
 - Both token types have an `expiresAt` timestamp and a `used` flag.
 - Tokens can only be used once.
 
@@ -588,10 +595,12 @@ Sliding-window rate limiter (`src/lib/rate-limit.ts`):
 
 | Endpoint | Limit | Window | Behaviour when exceeded |
 |----------|-------|--------|-------------------------|
+| `sign-in` | 10 | 15 min | HTTP 429 |
 | `register` | 5 | 15 min | HTTP 429 |
 | `forgot-password` | 5 | 15 min | HTTP 200 + `Retry-After: 900` header |
 | `reset-password` | 10 | 15 min | HTTP 429 |
-| `convert/request` | 5 | 15 min | HTTP 200 (zero-disclosure) |
+| `convert/check` | 20 | 15 min | HTTP 429 |
+| `convert/request` | 5 | 15 min | HTTP 200 + `Retry-After: 900` header |
 | `convert/complete` | 10 | 15 min | HTTP 429 |
 
 ---
@@ -604,8 +613,8 @@ Sliding-window rate limiter (`src/lib/rate-limit.ts`):
 
 - **SMTP service** (when `EMAIL_PROVIDER=smtp`): uses Nodemailer with configured
   SMTP credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`).
-- **Fake service** (any other value): logs the email content to the console without
-  sending. Used in development.
+- **Fake service** (any other value): writes the rendered email to an `.html` file
+  under the project `email/` directory instead of sending it. Used in development.
 
 ### 10.2 Sent Emails
 
@@ -783,7 +792,7 @@ criterion is self-contained and testable. Criteria are grouped by feature area.
 
 **Given** an authenticated user  
 **When** `POST /api/profiles/[new-uuid]` is called with a valid profile body  
-**Then** the response is HTTP 200 `{ success: true }` and the profile is retrievable via `GET /api/profiles/[id]`.
+**Then** the response is HTTP 201 `{ success: true }` and the profile is retrievable via `GET /api/profiles/[id]`.
 
 ---
 
@@ -863,7 +872,7 @@ criterion is self-contained and testable. Criteria are grouped by feature area.
 
 **Given** an authenticated user who owns profile `[id]`  
 **When** `DELETE /api/profiles/[id]` is called  
-**Then** the response is HTTP 200 `{ success: true }` and subsequent `GET /api/profiles/[id]` returns HTTP 404.
+**Then** the response is HTTP 204 with no response body and subsequent `GET /api/profiles/[id]` returns HTTP 404.
 
 ---
 
@@ -1011,11 +1020,15 @@ criterion is self-contained and testable. Criteria are grouped by feature area.
 
 ---
 
-### AC-SECURITY-03: CSRF — NextAuth Paths Excluded
+### AC-SECURITY-03: CSRF — NextAuth Paths Still Require Matching Origin
 
-**Given** a POST request to `/api/auth/callback/credentials` without a matching Origin  
-**When** the request reaches the middleware  
-**Then** the request is not rejected by CSRF middleware (NextAuth handles its own CSRF).
+**Given** a POST request to `/api/auth/callback/credentials`  
+**When** the request reaches the middleware with a matching `Origin` header  
+**Then** the request proceeds normally.
+
+**And given** the same request with a missing or mismatched `Origin` header  
+**When** it reaches the middleware  
+**Then** the response is HTTP 403.
 
 ---
 

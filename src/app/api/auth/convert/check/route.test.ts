@@ -14,6 +14,8 @@ import { mock, before, beforeEach } from "node:test";
 import { NextRequest } from "next/server";
 import type * as RouteModule from "./route";
 
+const ORIGINAL_TRUST_PROXY = process.env.TRUST_PROXY;
+
 // ---------------------------------------------------------------------------
 // Shared mock state
 // ---------------------------------------------------------------------------
@@ -27,6 +29,8 @@ const mockGetConversionToken = mock.fn(
 let route: typeof RouteModule | null = null;
 
 before(async () => {
+  process.env.TRUST_PROXY = "true";
+
   await mock.module("@/lib/token-store", {
     namedExports: {
       getConversionToken: mockGetConversionToken,
@@ -45,9 +49,12 @@ beforeEach(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeRequest(token: string): NextRequest {
+function makeRequest(token: string, ip = "10.20.0.1"): NextRequest {
   return new NextRequest(
-    `http://localhost:3000/api/auth/convert/check?token=${encodeURIComponent(token)}`
+    `http://localhost:3000/api/auth/convert/check?token=${encodeURIComponent(token)}`,
+    {
+      headers: { "x-forwarded-for": ip },
+    }
   );
 }
 
@@ -85,4 +92,21 @@ test("AC-AUTH-17: GET /api/auth/convert/check with missing token param returns 4
   const req = new NextRequest("http://localhost:3000/api/auth/convert/check");
   const response = await route!.GET(req);
   assert.equal(response.status, 400);
+});
+
+test("GET /api/auth/convert/check is rate-limited after 20 requests", async () => {
+  _getConversionTokenResult = null;
+  const ip = `10.21.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`;
+
+  for (let i = 0; i < 20; i++) {
+    const response = await route!.GET(makeRequest(`token-${i}`, ip));
+    assert.notEqual(response.status, 429);
+  }
+
+  const throttled = await route!.GET(makeRequest("token-final", ip));
+  assert.equal(throttled.status, 429);
+});
+
+test.after(() => {
+  process.env.TRUST_PROXY = ORIGINAL_TRUST_PROXY;
 });

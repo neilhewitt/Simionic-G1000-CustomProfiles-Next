@@ -3,6 +3,7 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { registerUser, ConflictError } from "@/lib/user-service";
 import { checkCommonPassword } from "@/lib/common-passwords";
 import { isValidEmail } from "@/lib/email-validator";
+import { getPasswordLengthError } from "@/lib/password-policy";
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -34,18 +35,17 @@ export async function POST(request: NextRequest) {
     if (!isValidEmail(email)) {
       return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
     }
-    if (!password || typeof password !== "string" || password.length < 8) {
-      return NextResponse.json(
-        { error: "Password must be at least 8 characters." },
-        { status: 400 }
-      );
+    const passwordLengthError = getPasswordLengthError(password);
+    if (passwordLengthError) {
+      return NextResponse.json({ error: passwordLengthError }, { status: 400 });
     }
-    const commonPasswordError = checkCommonPassword(password);
+    const validPassword = password as string;
+    const commonPasswordError = checkCommonPassword(validPassword);
     if (commonPasswordError) {
       return NextResponse.json({ error: commonPasswordError }, { status: 400 });
     }
 
-    const result = await registerUser(name, email, password);
+    const result = await registerUser(name, email, validPassword);
     return NextResponse.json(
       { message: "Account created.", ownerId: result.ownerId },
       { status: 201 }

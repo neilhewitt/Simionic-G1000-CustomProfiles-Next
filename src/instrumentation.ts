@@ -5,7 +5,14 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { getAppUrlWarning } = await import("./lib/app-url");
     const { initializeDb } = await import("./lib/init");
+
+    const appUrlWarning = getAppUrlWarning();
+    if (appUrlWarning) {
+      console.warn(appUrlWarning);
+    }
+
     await initializeDb();
   }
 }

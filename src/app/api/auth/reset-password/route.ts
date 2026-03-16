@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { resetPassword, ValidationError } from "@/lib/user-service";
 import { checkCommonPassword } from "@/lib/common-passwords";
+import { getPasswordLengthError } from "@/lib/password-policy";
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -30,18 +31,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "All fields are required." }, { status: 400 });
     }
 
-    if (typeof password !== "string" || password.length < 8) {
-      return NextResponse.json(
-        { error: "Password must be at least 8 characters." },
-        { status: 400 }
-      );
+    const passwordLengthError = getPasswordLengthError(password);
+    if (passwordLengthError) {
+      return NextResponse.json({ error: passwordLengthError }, { status: 400 });
     }
-    const commonPasswordError = checkCommonPassword(password);
+    const validPassword = password as string;
+    const commonPasswordError = checkCommonPassword(validPassword);
     if (commonPasswordError) {
       return NextResponse.json({ error: commonPasswordError }, { status: 400 });
     }
 
-    await resetPassword(email, resetToken, password);
+    await resetPassword(email, resetToken, validPassword);
     return NextResponse.json({ message: "Password reset successfully." });
   } catch (error) {
     if (error instanceof ValidationError) {

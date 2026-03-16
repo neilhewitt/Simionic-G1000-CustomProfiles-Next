@@ -16,6 +16,7 @@ const VALID_UUID = "123e4567-e89b-12d3-a456-426614174000";
 let _findResult: Record<string, unknown>[] = [];
 let _countDocumentsResult = 0;
 let _updateManyResult = { modifiedCount: 0 };
+let _updateOneResult = { acknowledged: true, upsertedCount: 0 };
 
 const mockToArray = mock.fn(async (): Promise<Record<string, unknown>[]> => _findResult);
 const mockLimit = mock.fn((_limit: number) => ({ toArray: mockToArray }));
@@ -23,7 +24,7 @@ const mockSkip = mock.fn((_skip: number) => ({ limit: mockLimit }));
 const mockSort = mock.fn((_sort: Record<string, 1 | -1>) => ({ skip: mockSkip }));
 const mockFind = mock.fn((_filter: unknown, _options?: unknown) => ({ sort: mockSort }));
 const mockCountDocuments = mock.fn(async (_filter: unknown): Promise<number> => _countDocumentsResult);
-const mockUpdateOne = mock.fn(async (_filter: unknown, _update: unknown, _options?: unknown) => ({ acknowledged: true }));
+const mockUpdateOne = mock.fn(async (_filter: unknown, _update: unknown, _options?: unknown) => _updateOneResult);
 const mockUpdateMany = mock.fn(async (_filter: unknown, _update: unknown, _options?: unknown) => _updateManyResult);
 const mockCreateIndex = mock.fn(async (_keys: unknown, _options?: unknown) => "mock-index");
 const mockDeleteOne = mock.fn(async (_filter: unknown) => ({ deletedCount: 1 }));
@@ -59,6 +60,7 @@ beforeEach(() => {
   _findResult = [];
   _countDocumentsResult = 0;
   _updateManyResult = { modifiedCount: 0 };
+  _updateOneResult = { acknowledged: true, upsertedCount: 0 };
 
   mockGetDb.mock.resetCalls();
   mockCollection.mock.resetCalls();
@@ -160,6 +162,22 @@ test("upsertProfile writes Owner.Id by replacing the Owner subdocument", async (
   assert.equal(owner["Id"], "owner-123");
   assert.equal(owner["Name"], "Alice");
   assert.equal(owner["id"], undefined);
+});
+
+test("upsertProfile returns true when MongoDB reports an insert", async () => {
+  _updateOneResult = { acknowledged: true, upsertedCount: 1 };
+
+  const created = await store!.upsertProfile(VALID_UUID, makeProfile());
+
+  assert.equal(created, true);
+});
+
+test("upsertProfile returns false when MongoDB reports an update", async () => {
+  _updateOneResult = { acknowledged: true, upsertedCount: 0 };
+
+  const created = await store!.upsertProfile(VALID_UUID, makeProfile());
+
+  assert.equal(created, false);
 });
 
 test("updateProfileOwner migrates both owner id variants to Owner.Id", async () => {

@@ -15,7 +15,7 @@ A web application for creating, editing, sharing, and exporting custom instrumen
 
 ### Auth endpoint rate-limiting behavior
 
-- `register`, `reset-password`, `convert/complete` return `429` with `Retry-After` when throttled.
+- `sign-in`, `register`, `reset-password`, `convert/check`, and `convert/complete` return `429` with `Retry-After` when throttled.
 - `forgot-password` and `convert/request` intentionally keep their normal `200` response shape when throttled (zero-disclosure), and include `Retry-After` where applicable.
 
 ## Tech Stack
@@ -47,6 +47,10 @@ npm install
 Create a `.env.local` file in the project root:
 
 ```env
+# Public app URL used in password-reset and conversion emails
+# In production, the app warns if this is missing, invalid, or not HTTPS.
+APP_URL=http://localhost:3000
+
 # NextAuth.js
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=<generate-a-random-secret>
@@ -198,7 +202,7 @@ src/
   lib/                    # Server-side utilities
     mongodb.ts            # MongoDB client singleton
     data-store.ts         # Data access layer (getAllProfiles, getProfile, upsertProfile)
-    profile-service.ts    # Business logic with typed error classes
+    profile-service.ts    # Business logic for profile access + ownership
     user-store.ts         # User account CRUD operations
     user-service.ts       # User business logic
     token-store.ts        # Password reset and conversion token management
@@ -209,7 +213,7 @@ src/
     email/                # Email service abstraction (SMTP + fake implementations)
     export.ts             # Client-side JSON export helper
   types/                  # TypeScript interfaces & enums
-  proxy.ts              # CSP nonce generation + CSRF protection
+  proxy.ts                 # CSP nonce generation + CSRF protection
 scripts/
   migrate-to-mongo.ts     # Data migration script
 public/                   # Static assets (CSS, images)

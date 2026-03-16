@@ -1,27 +1,9 @@
 import { Profile } from "@/types";
 import { getProfile, upsertProfile, deleteProfile } from "./data-store";
 import { profileSchema } from "./profile-schema";
+import { ForbiddenError, NotFoundError, ValidationError } from "./errors";
 
-export class NotFoundError extends Error {
-  constructor(message = "Not found") {
-    super(message);
-    this.name = "NotFoundError";
-  }
-}
-
-export class ForbiddenError extends Error {
-  constructor(message = "Forbidden") {
-    super(message);
-    this.name = "ForbiddenError";
-  }
-}
-
-export class ValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ValidationError";
-  }
-}
+export { ForbiddenError, NotFoundError, ValidationError } from "./errors";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -31,10 +13,13 @@ function validateUUID(id: string): void {
   }
 }
 
-export async function getProfileById(id: string): Promise<Profile> {
+export async function getProfileById(id: string, viewerOwnerId?: string): Promise<Profile> {
   validateUUID(id);
   const profile = await getProfile(id);
   if (!profile) {
+    throw new NotFoundError("Profile not found");
+  }
+  if (!profile.isPublished && profile.owner?.id !== viewerOwnerId) {
     throw new NotFoundError("Profile not found");
   }
   return profile;
@@ -45,7 +30,7 @@ export async function saveProfile(
   body: unknown,
   ownerId: string,
   ownerName: string | null
-): Promise<void> {
+): Promise<boolean> {
   validateUUID(id);
 
   const result = profileSchema.safeParse(body);
@@ -60,7 +45,7 @@ export async function saveProfile(
   }
 
   profile.owner = { id: ownerId, name: ownerName };
-  await upsertProfile(id, profile);
+  return upsertProfile(id, profile);
 }
 
 export async function deleteProfileById(

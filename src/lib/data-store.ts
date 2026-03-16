@@ -126,7 +126,7 @@ export async function getProfile(id: string): Promise<Profile | null> {
   return profile;
 }
 
-export async function upsertProfile(id: string, profile: Profile): Promise<void> {
+export async function upsertProfile(id: string, profile: Profile): Promise<boolean> {
   const db = await getDb();
 
   profile.id = id;
@@ -136,11 +136,13 @@ export async function upsertProfile(id: string, profile: Profile): Promise<void>
   // Preserve lowercase `id` in the document
   doc.id = id;
 
-  await db.collection(COLLECTION).updateOne(
+  const result = await db.collection(COLLECTION).updateOne(
     { id },
     { $set: doc },
     { upsert: true }
   );
+
+  return result.upsertedCount === 1;
 }
 
 export async function deleteProfile(id: string): Promise<boolean> {

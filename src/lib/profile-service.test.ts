@@ -20,12 +20,13 @@ import type * as ProfileServiceModule from "./profile-service";
 
 let _getProfileResult: Profile | null = null;
 let _deleteProfileResult = true;
+let _upsertProfileCreated = false;
 
 const mockGetProfile = mock.fn(
   async (_id: string): Promise<Profile | null> => _getProfileResult
 );
 const mockUpsertProfile = mock.fn(
-  async (_id: string, _profile: unknown): Promise<void> => undefined
+  async (_id: string, _profile: unknown): Promise<boolean> => _upsertProfileCreated
 );
 const mockDeleteProfile = mock.fn(
   async (_id: string): Promise<boolean> => _deleteProfileResult
@@ -53,6 +54,7 @@ beforeEach(() => {
   mockDeleteProfile.mock.resetCalls();
   _getProfileResult = null;
   _deleteProfileResult = true;
+  _upsertProfileCreated = false;
 });
 
 // ---------------------------------------------------------------------------
@@ -149,14 +151,35 @@ test("ValidationError has correct name and message", () => {
 // getProfileById
 // ---------------------------------------------------------------------------
 
-test("getProfileById returns the profile when found", async () => {
+test("getProfileById returns a published profile to an anonymous caller", async () => {
   const profile = makeValidProfile();
+  profile.isPublished = true;
   _getProfileResult = profile;
 
   const result = await service!.getProfileById(VALID_UUID);
   assert.deepEqual(result, profile);
   assert.equal(mockGetProfile.mock.calls.length, 1);
   assert.equal(mockGetProfile.mock.calls[0].arguments[0], VALID_UUID);
+});
+
+test("getProfileById returns an unpublished profile to its owner", async () => {
+  const profile = makeValidProfile("owner-1");
+  _getProfileResult = profile;
+
+  const result = await service!.getProfileById(VALID_UUID, "owner-1");
+  assert.deepEqual(result, profile);
+});
+
+test("getProfileById hides an unpublished profile from non-owners", async () => {
+  _getProfileResult = makeValidProfile("owner-1");
+
+  await assert.rejects(
+    () => service!.getProfileById(VALID_UUID, "owner-2"),
+    (err: unknown) => {
+      assert.ok(err instanceof service!.NotFoundError);
+      return true;
+    }
+  );
 });
 
 test("getProfileById throws NotFoundError when profile is null", async () => {
@@ -181,6 +204,7 @@ test("getProfileById throws ValidationError for an invalid UUID", async () => {
 
 test("getProfileById accepts UUID with uppercase hex digits", async () => {
   _getProfileResult = makeValidProfile();
+  _getProfileResult.isPublished = true;
   const result = await service!.getProfileById(VALID_UUID.toUpperCase());
   assert.ok(result);
 });
@@ -210,13 +234,21 @@ test("saveProfile throws ValidationError when profile body fails schema validati
 });
 
 test("saveProfile upserts a new profile when none exists", async () => {
-  await service!.saveProfile(VALID_UUID, makeValidProfile("owner-1"), "owner-1", "Owner");
+  _upsertProfileCreated = true;
+
+  const created = await service!.saveProfile(VALID_UUID, makeValidProfile("owner-1"), "owner-1", "Owner");
+
+  assert.equal(created, true);
   assert.equal(mockUpsertProfile.mock.calls.length, 1);
 });
 
 test("saveProfile upserts when existing profile belongs to the same owner", async () => {
   _getProfileResult = makeValidProfile("owner-1");
-  await service!.saveProfile(VALID_UUID, makeValidProfile("owner-1"), "owner-1", "Owner");
+  _upsertProfileCreated = false;
+
+  const created = await service!.saveProfile(VALID_UUID, makeValidProfile("owner-1"), "owner-1", "Owner");
+
+  assert.equal(created, false);
   assert.equal(mockUpsertProfile.mock.calls.length, 1);
 });
 

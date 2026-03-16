@@ -157,3 +157,20 @@ test("POST /api/auth/convert/complete with missing fields returns 400", async ()
 
   assert.equal(response.status, 400);
 });
+
+test("POST /api/auth/convert/complete with password > 1024 chars returns 400", async () => {
+  const ip = `10.34.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`;
+  const response = await route!.POST(makeRequest(
+    {
+      token: "valid-conv-token",
+      email: "ms-user@example.com",
+      name: "Alice",
+      password: "a".repeat(1025),
+    },
+    ip
+  ) as never);
+
+  assert.equal(response.status, 400);
+  const body = await response.json() as { error: string };
+  assert.match(body.error, /1024/);
+});

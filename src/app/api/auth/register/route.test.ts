@@ -11,8 +11,10 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mock, before, beforeEach } from "node:test";
+import { after, mock, before, beforeEach } from "node:test";
 import type * as RouteModule from "./route";
+
+const ORIGINAL_TRUST_PROXY = process.env.TRUST_PROXY;
 
 // ---------------------------------------------------------------------------
 // Shared mock state
@@ -33,6 +35,8 @@ const mockRegisterUser = mock.fn(async () => {
 let route: typeof RouteModule | null = null;
 
 before(async () => {
+  process.env.TRUST_PROXY = "true";
+
   await mock.module("@/lib/user-service", {
     namedExports: {
       registerUser: mockRegisterUser,
@@ -47,6 +51,10 @@ beforeEach(() => {
   mockRegisterUser.mock.resetCalls();
   _registerError = null;
   _registerResult = { ownerId: "uuid-new-user" };
+});
+
+after(() => {
+  process.env.TRUST_PROXY = ORIGINAL_TRUST_PROXY;
 });
 
 // ---------------------------------------------------------------------------
@@ -115,6 +123,18 @@ test("AC-AUTH-03: POST /api/auth/register with password < 8 chars returns 400", 
   assert.equal(response.status, 400);
   const body = await response.json() as { error: string };
   assert.ok(typeof body.error === "string");
+});
+
+test("POST /api/auth/register with password > 1024 chars returns 400", async () => {
+  const uniqueIp = `10.35.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`;
+  const response = await route!.POST(makeRequest(
+    { name: "Alice", email: "alice@example.com", password: "a".repeat(1025) },
+    uniqueIp
+  ) as never);
+
+  assert.equal(response.status, 400);
+  const body = await response.json() as { error: string };
+  assert.match(body.error, /1024/);
 });
 
 // ---------------------------------------------------------------------------

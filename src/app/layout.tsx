@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "bootstrap-icons/font/bootstrap-icons.css";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -22,7 +23,6 @@ export default function RootLayout({
         <link href="/css/start-bootstrap-5.0.5-custom.css" rel="stylesheet" />
         <link href="/css/g1000-profile-db.css" rel="stylesheet" />
         {/* eslint-enable @next/next/no-css-tags */}
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet" crossOrigin="anonymous" />
       </head>
       <body className="bg-dark d-flex flex-column" style={{ minHeight: "100vh" }}>
         <AuthProvider>

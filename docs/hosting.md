@@ -142,6 +142,7 @@ Create `/var/www/g1000profiles/.env.local`:
 ```env
 NEXTAUTH_URL=https://yourdomain.com
 NEXTAUTH_SECRET=<output of: openssl rand -base64 32>
+APP_URL=https://yourdomain.com
 
 MONGODB_URI=mongodb://127.0.0.1:27017
 MONGODB_DB=simionic
@@ -410,6 +411,7 @@ docker run -d \
   -p 3000:3000 \
   -e NEXTAUTH_URL=https://yourdomain.com \
   -e NEXTAUTH_SECRET=<secret> \
+  -e APP_URL=https://yourdomain.com \
   -e MONGODB_URI=mongodb://host.docker.internal:27017 \
   -e MONGODB_DB=simionic \
   -e EMAIL_PROVIDER=smtp \
@@ -444,6 +446,7 @@ services:
     environment:
       NEXTAUTH_URL: "https://yourdomain.com"
       NEXTAUTH_SECRET: "${NEXTAUTH_SECRET}"
+      APP_URL: "https://yourdomain.com"
       MONGODB_URI: "mongodb://mongo:27017"
       MONGODB_DB: "simionic"
       EMAIL_PROVIDER: "${EMAIL_PROVIDER:-fake}"
@@ -503,11 +506,12 @@ Vercel is the simplest option if you can use a cloud MongoDB (Atlas free tier wo
 2. Import the repository in the [Vercel dashboard](https://vercel.com/).
 3. Set environment variables in the Vercel project settings:
    - `NEXTAUTH_SECRET`
-   - `NEXTAUTH_URL` (your Vercel deployment URL, e.g. `https://yourproject.vercel.app`)
+    - `NEXTAUTH_URL` (your Vercel deployment URL, e.g. `https://yourproject.vercel.app`)
+    - `APP_URL` (same public HTTPS URL used in password-reset and conversion emails)
    - `MONGODB_URI` (MongoDB Atlas connection string)
    - `MONGODB_DB`
    - Email variables if needed
-   - Do **not** set `TRUST_PROXY` — Vercel handles IP forwarding transparently
+    - `TRUST_PROXY=true`
 4. Deploy.
 
 Vercel automatically sets `NODE_ENV=production` and handles TLS, scaling, and CI/CD.
@@ -522,6 +526,7 @@ Vercel automatically sets `NODE_ENV=production` and handles TLS, scaling, and CI
 |-------------------|----------|-----------------|--------------------------------------------------------------------|
 | `NEXTAUTH_URL`    | Yes      | —               | Full URL including scheme, e.g. `https://yourdomain.com`           |
 | `NEXTAUTH_SECRET` | Yes      | —               | Min 32 random bytes. Generate: `openssl rand -base64 32`           |
+| `APP_URL`         | Yes in production for correct email links | — | Public HTTPS base URL used in password-reset and conversion emails |
 | `MONGODB_URI`     | Yes      | —               | Full connection string, e.g. `mongodb://127.0.0.1:27017`           |
 | `MONGODB_DB`      | No       | `simionic`      | Database name                                                      |
 | `EMAIL_PROVIDER`  | No       | `fake`          | `smtp` to send real emails; anything else uses the fake logger     |
@@ -629,6 +634,7 @@ Before going to production, verify the following:
 **Application**
 - [ ] `NEXTAUTH_SECRET` is a cryptographically random value of at least 32 bytes
 - [ ] `NEXTAUTH_URL` is set to the correct production URL (HTTPS)
+- [ ] `APP_URL` is set to the correct production URL and uses HTTPS
 - [ ] `NODE_ENV=production` is set when running `next start`
 - [ ] `.env.local` is readable only by the application process (`chmod 600`)
 - [ ] `TRUST_PROXY=true` is set only if a trusted reverse proxy is in front of the app

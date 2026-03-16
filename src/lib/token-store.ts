@@ -39,15 +39,22 @@ async function ensureResetIndexes() {
 export async function createResetCode(email: string): Promise<string> {
   await ensureResetIndexes();
   const db = await getDb();
+  const normalizedEmail = email.toLowerCase().trim();
+  const now = new Date();
 
   const token = randomBytes(32).toString("hex");
   const record: ResetCode = {
-    email: email.toLowerCase().trim(),
+    email: normalizedEmail,
     codeHash: sha256(token),
-    expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+    expiresAt: new Date(now.getTime() + 15 * 60 * 1000), // 15 minutes
     used: false,
   };
 
+  await db.collection(RESET_COLLECTION).deleteMany({
+    email: normalizedEmail,
+    expiresAt: { $gt: now },
+    used: false,
+  });
   await db.collection(RESET_COLLECTION).insertOne(record);
   return token;
 }
@@ -126,8 +133,9 @@ export async function createConversionToken(
 }
 
 /**
- * Returns a valid (not expired, not used) conversion token record, or null.
- * Accepts the raw token; looks up by its SHA-256 hash.
+ * Returns a valid, unused, non-expired conversion token for
+ * GET /api/auth/convert/check.
+ * Accepts the raw token and looks up the stored SHA-256 hash.
  */
 export async function getConversionToken(
   token: string
@@ -145,9 +153,10 @@ export async function getConversionToken(
 }
 
 /**
- * Returns a conversion token record regardless of its `used` status (but still
- * requires it to be non-expired). Used by the idempotent conversion flow to
- * detect retries on an already-completed token.
+ * Returns a non-expired conversion token regardless of its `used` status for
+ * the completeConversion flow.
+ * This lets the conversion flow detect and handle idempotent retries on a
+ * token that has already been consumed.
  */
 export async function findConversionToken(
   token: string

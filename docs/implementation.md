@@ -34,8 +34,9 @@ All required configuration is passed via environment variables. In development t
 
 | Variable          | Required | Default         | Purpose                                      |
 |-------------------|----------|-----------------|----------------------------------------------|
-| `NEXTAUTH_URL`    | Yes      | —               | Canonical URL of the app (e.g. `https://example.com`) |
+| `NEXTAUTH_URL`    | Recommended | —            | Canonical URL of the app for deployments that need it |
 | `NEXTAUTH_SECRET` | Yes      | —               | Random secret for JWT signing (min 32 chars) |
+| `APP_URL`         | Recommended in development, effectively required in production for correct email links | — | Base URL used in password-reset and conversion emails |
 | `MONGODB_URI`     | Yes      | —               | MongoDB connection string                    |
 | `MONGODB_DB`      | No       | `simionic`      | Database name                                |
 | `EMAIL_PROVIDER`  | No       | `fake`          | `smtp` or `fake`                             |
@@ -46,9 +47,11 @@ All required configuration is passed via environment variables. In development t
 | `SMTP_FROM`       | If smtp  | —               | Sender address (e.g. `noreply@example.com`)  |
 | `TRUST_PROXY`     | No       | `false`         | Trust `X-Forwarded-For` for rate-limit IPs   |
 
-`NEXTAUTH_URL` and `NEXTAUTH_SECRET` are validated at import time in `src/lib/auth.ts` — the process throws immediately at startup if either is missing.
+`NEXTAUTH_SECRET` is validated at import time in `src/lib/auth.ts` — the process throws immediately at startup if it is missing.
 
 `MONGODB_URI` is validated at import time in `src/lib/mongodb.ts`.
+
+`APP_URL` is checked at startup in `src/instrumentation.ts`. In production, the app logs a warning if `APP_URL` is missing, malformed, or does not use `https://`.
 
 ---
 
@@ -313,7 +316,7 @@ Fetches a single full profile by UUID, passes through `toCamelCase()`, and calls
 
 ### `upsertProfile(id, profile)`
 
-Converts the profile to PascalCase with `toPascalCase()`, sets `LastUpdated` to the current ISO timestamp, and performs a MongoDB `updateOne` with `upsert: true`. The lowercase `id` field is re-set after case conversion (since `toPascalCase` would capitalise it to `Id`).
+Converts the profile to PascalCase with `toPascalCase()`, sets `LastUpdated` to the current ISO timestamp, and performs a MongoDB `updateOne` with `upsert: true`. The lowercase `id` field is re-set after case conversion (since `toPascalCase` would capitalise it to `Id`). Returns `true` when MongoDB reports an insert and `false` when it reports an update.
 
 ### `deleteProfile(id)`
 
@@ -337,6 +340,8 @@ class NotFoundError   extends Error { name = "NotFoundError"   }
 class ForbiddenError  extends Error { name = "ForbiddenError"  }
 ```
 
+These shared error classes live in `src/lib/errors.ts` and are re-exported by the service modules.
+
 ### `saveProfile(id, body, ownerId, ownerName)`
 
 1. Validates `id` is a valid UUID (throws `ValidationError` if not).
@@ -344,7 +349,7 @@ class ForbiddenError  extends Error { name = "ForbiddenError"  }
 3. Loads the existing profile from the data store.
 4. If an existing profile exists and its owner does not match `ownerId`, throws `ForbiddenError`.
 5. Sets `profile.owner = { id: ownerId, name: ownerName }`.
-6. Calls `upsertProfile(id, profile)`.
+6. Calls `upsertProfile(id, profile)` and returns whether the save created a new document.
 
 ### `deleteProfileById(id, ownerId)`
 
@@ -373,7 +378,7 @@ Owner-filtered results are only served to the authenticated owner. If an unauthe
 
 Returns the full profile object. Throws `NotFoundError` (404) for unknown IDs; `ValidationError` (400) for non-UUID IDs.
 
-Note: there is currently no server-side visibility check — any caller can retrieve any profile by UUID if they know the ID. Draft profiles are not listed by `GET /api/profiles` without auth, so their UUIDs are not discoverable through the API.
+Draft visibility is enforced server-side: published profiles are visible to everyone, but unpublished drafts are returned only to their owner. Non-owners receive `404` so the endpoint does not disclose whether a draft exists.
 
 ### `POST /api/profiles/[id]`
 
@@ -388,11 +393,21 @@ ForbiddenError  -> 403
 (unexpected)    -> 500
 ```
 
+Returns HTTP 201 with `{ success: true }` when the save inserts a new profile, and HTTP 200 with the same body when it updates an existing profile.
+
 ### `DELETE /api/profiles/[id]`
 
 **File:** `src/app/api/profiles/[id]/route.ts`
 
 Requires authentication. Delegates to `deleteProfileById()` with the same error mapping.
+
+Returns HTTP 204 with no response body on success.
+
+### `POST /api/auth/[...nextauth]`
+
+**File:** `src/app/api/auth/[...nextauth]/route.ts`
+
+Delegates to NextAuth's internal POST handler, but only after applying a per-IP rate limit of 10 requests per 15 minutes. Throttled requests return HTTP 429 with `Retry-After: 900`.
 
 ### `POST /api/auth/register`
 
@@ -402,7 +417,7 @@ Rate-limited: 5 requests per 15 minutes per IP.
 
 Validates:
 - Email format (via `email-validator.ts`)
-- Password length (minimum 8 characters)
+- Password length (minimum 8 characters, maximum 1024)
 - Password not in common-passwords list
 
 Hashes password with Argon2 and calls `createUser()`. Returns `{ message, ownerId }`.
@@ -421,21 +436,21 @@ If the email exists, creates a reset code and sends an email with a reset link.
 
 **File:** `src/app/api/auth/reset-password/route.ts`
 
-Rate-limited: 5 requests per 15 minutes per IP.
+Rate-limited: 10 requests per 15 minutes per IP.
 
-Accepts `{ token, email, password }`. Verifies the token (returns 400 if invalid/expired). Updates the password hash in the `users` collection.
+Accepts `{ token, email, password }` (and still accepts legacy `{ code, email, password }`). Verifies the token (returns 400 if invalid/expired), enforces the same 8–1024 password policy as registration, and updates the password hash in the `users` collection.
 
-### `POST /api/auth/convert/check`
+### `GET /api/auth/convert/check`
 
 **File:** `src/app/api/auth/convert/check/route.ts`
 
-Accepts `{ email }`. Returns whether the email is eligible for account conversion (i.e., has profiles under a now-removed Microsoft owner ID but no local account).
+Accepts a raw token in the query string (`?token=...`). Returns HTTP 200 `{ valid: true }` for a valid, unused, non-expired token, HTTP 404 otherwise. Rate-limited: 20 requests per 15 minutes per IP.
 
 ### `POST /api/auth/convert/request`
 
 **File:** `src/app/api/auth/convert/request/route.ts`
 
-Zero-disclosure. Creates a conversion token and sends an email with a conversion link valid for 24 hours.
+Zero-disclosure. Creates a conversion token and sends an email with a conversion link valid for 24 hours. Rate-limited: 5 requests per 15 minutes per IP; when throttled it still returns HTTP 200 with the normal zero-disclosure body and `Retry-After: 900`.
 
 ### `POST /api/auth/convert/complete`
 
@@ -443,7 +458,7 @@ Zero-disclosure. Creates a conversion token and sends an email with a conversion
 
 Rate-limited: 10 requests per 15 minutes per IP.
 
-Accepts `{ token, email, name, password }`. Completes the conversion in a MongoDB transaction:
+Accepts `{ token, email, name, password }`. Enforces the same 8–1024 password policy as registration, then completes the conversion in a MongoDB transaction:
 
 1. Retrieve and validate the conversion token.
 2. Hash the new password.
@@ -451,7 +466,7 @@ Accepts `{ token, email, name, password }`. Completes the conversion in a MongoD
 4. `updateProfileOwner()` — migrates all profiles to the new owner ID.
 5. `markConversionTokenUsed()` — marks the token as consumed.
 
-Returns `{ success: true, ownerId }`.
+Returns `{ message, profilesMigrated }`.
 
 ---
 
@@ -489,7 +504,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 });
 ```
 
-**`handlers`** is mounted at `src/app/api/auth/[...nextauth]/route.ts` to handle NextAuth's internal endpoints (sign-in, sign-out, session).
+**`handlers`** is mounted at `src/app/api/auth/[...nextauth]/route.ts` to handle NextAuth's internal endpoints (sign-in, sign-out, session). The route wrapper rate-limits POST requests before delegating to NextAuth.
 
 **`auth()`** is a server-side function that reads the JWT from the incoming request and returns the session, or `null` if unauthenticated. Used in API routes and Server Components.
 
@@ -744,7 +759,14 @@ All schemas use `.strip()` to ignore unknown fields, so extra properties from ol
 ```typescript
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { getAppUrlWarning } = await import("./lib/app-url");
     const { initializeDb } = await import("./lib/init");
+
+    const appUrlWarning = getAppUrlWarning();
+    if (appUrlWarning) {
+      console.warn(appUrlWarning);
+    }
+
     await initializeDb();
   }
 }
@@ -753,6 +775,7 @@ export async function register() {
 `src/lib/init.ts` calls:
 - `initUserStore()` — creates indexes on the `users` collection
 - `initTokenStore()` — creates TTL indexes on `password_reset_codes` and `conversion_tokens`
+- `initProfileStore()` — creates indexes on the `profiles` collection
 
 This ensures all required indexes exist before the first request is served, rather than lazily on the first operation. The dynamic import inside the condition avoids loading server-only code in Edge runtime contexts.
 
@@ -824,16 +847,46 @@ This script is idempotent — it can be run multiple times without duplicating d
 
 ## Testing
 
-The repository includes a single test file: `src/lib/rate-limit.test.ts`, which tests the rate limiter logic in isolation.
+The project has automated unit, integration, and UI tests.
 
-To run tests:
+### Unit tests
+
+Run pure-library tests with the Node.js test runner:
 
 ```bash
-# No dedicated test runner is configured in package.json as of this writing.
-# The test file uses the Node.js built-in test runner (node:test):
-node --experimental-test-coverage --test src/lib/rate-limit.test.ts
+npm run test:unit
 ```
 
-The rest of the application does not currently have automated tests. Manual testing is the primary verification approach for the UI and API endpoints.
+These cover modules under `src/lib/`, including the rate limiter, field mapping, services, token store, password-policy helpers, and profile utilities.
 
-If adding tests, follow the pattern in `rate-limit.test.ts` using Node's built-in `node:test` module and `assert` — no additional test framework is required.
+### Integration tests
+
+Run route and proxy tests with mocked I/O:
+
+```bash
+npm run test:integration
+```
+
+These cover API routes under `src/app/api/**` and `src/proxy.ts` without requiring a live MongoDB instance.
+
+### UI tests
+
+Run the Playwright browser tests:
+
+```bash
+npm run test:ui
+```
+
+Open the HTML report from the last run with:
+
+```bash
+npm run test:ui:report
+```
+
+### All non-UI tests
+
+```bash
+npm test
+```
+
+The repository standardises on Node's built-in `node:test` module and `assert/strict` for unit and integration tests, plus Playwright for browser coverage.

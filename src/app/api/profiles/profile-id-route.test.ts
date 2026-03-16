@@ -32,6 +32,7 @@ let _session: { user: { name: string }; ownerId: string } | null = null;
 let _getProfileResult: Profile | null = null;
 let _saveProfileError: Error | null = null;
 let _deleteProfileError: Error | null = null;
+let _saveProfileCreated = true;
 
 class NotFoundErrorMock extends Error {
   constructor(message = "Not found") { super(message); this.name = "NotFoundError"; }
@@ -46,12 +47,16 @@ class ValidationErrorMock extends Error {
 }
 
 const mockAuth = mock.fn(async () => _session);
-const mockGetProfileById = mock.fn(async (_id: string): Promise<Profile> => {
+const mockGetProfileById = mock.fn(async (_id: string, viewerOwnerId?: string): Promise<Profile> => {
   if (!_getProfileResult) throw new NotFoundErrorMock("Profile not found");
+  if (!_getProfileResult.isPublished && _getProfileResult.owner.id !== viewerOwnerId) {
+    throw new NotFoundErrorMock("Profile not found");
+  }
   return _getProfileResult;
 });
 const mockSaveProfile = mock.fn(async () => {
   if (_saveProfileError) throw _saveProfileError;
+  return _saveProfileCreated;
 });
 const mockDeleteProfileById = mock.fn(async () => {
   if (_deleteProfileError) throw _deleteProfileError;
@@ -87,6 +92,7 @@ beforeEach(() => {
   _getProfileResult = null;
   _saveProfileError = null;
   _deleteProfileError = null;
+  _saveProfileCreated = true;
 });
 
 // ---------------------------------------------------------------------------
@@ -210,6 +216,25 @@ test("AC-PROFILE-07: GET /api/profiles/[id] returns 200 with profile data", asyn
   assert.equal(body.name, "Test Profile");
 });
 
+test("GET /api/profiles/[id] returns 200 for a draft owned by the caller", async () => {
+  _session = { user: { name: "Alice" }, ownerId: "owner-uuid" };
+  _getProfileResult = makeSavedProfile({ isPublished: false });
+
+  const response = await route!.GET(makeGetRequest(VALID_UUID), makeParams(VALID_UUID));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(mockGetProfileById.mock.calls[0].arguments, [VALID_UUID, "owner-uuid"]);
+});
+
+test("GET /api/profiles/[id] returns 404 for a draft not owned by the caller", async () => {
+  _session = null;
+  _getProfileResult = makeSavedProfile({ isPublished: false });
+
+  const response = await route!.GET(makeGetRequest(VALID_UUID), makeParams(VALID_UUID));
+
+  assert.equal(response.status, 404);
+});
+
 // ---------------------------------------------------------------------------
 // AC-PROFILE-08: GET profile — not found
 // ---------------------------------------------------------------------------
@@ -224,11 +249,12 @@ test("AC-PROFILE-08: GET /api/profiles/[id] for unknown ID returns 404", async (
 // AC-PROFILE-01: Create profile — authenticated
 // ---------------------------------------------------------------------------
 
-test("AC-PROFILE-01: POST /api/profiles/[id] by authenticated user returns 200 { success: true }", async () => {
+test("AC-PROFILE-01: POST /api/profiles/[id] by authenticated user returns 201 { success: true } when created", async () => {
   _session = { user: { name: "Alice" }, ownerId: "owner-uuid" };
+  _saveProfileCreated = true;
   const profile = makeSavedProfile();
   const response = await route!.POST(makePostRequest(VALID_UUID, profile), makeParams(VALID_UUID));
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 201);
   const body = await response.json() as { success: boolean };
   assert.equal(body.success, true);
   assert.equal(mockSaveProfile.mock.calls.length, 1);
@@ -245,6 +271,15 @@ test("AC-PROFILE-02: POST /api/profiles/[id] without session returns 401", async
   assert.equal(response.status, 401);
   const body = await response.json() as { error: string };
   assert.equal(body.error, "Unauthorized");
+});
+
+test("POST /api/profiles/[id] with missing ownerId returns 401", async () => {
+  _session = { user: { name: "Alice" }, ownerId: "" };
+  const profile = makeSavedProfile();
+
+  const response = await route!.POST(makePostRequest(VALID_UUID, profile), makeParams(VALID_UUID));
+
+  assert.equal(response.status, 401);
 });
 
 // ---------------------------------------------------------------------------
@@ -279,6 +314,7 @@ test("AC-PROFILE-04: POST /api/profiles/[id] with empty name returns 400", async
 
 test("AC-PROFILE-05: POST /api/profiles/[id] by owner succeeds on update", async () => {
   _session = { user: { name: "Alice" }, ownerId: "owner-uuid" };
+  _saveProfileCreated = false;
   const updated = makeSavedProfile({ name: "Updated Profile" });
   const response = await route!.POST(makePostRequest(VALID_UUID, updated), makeParams(VALID_UUID));
   assert.equal(response.status, 200);
@@ -287,6 +323,7 @@ test("AC-PROFILE-05: POST /api/profiles/[id] by owner succeeds on update", async
 
 test("POST /api/profiles/[id] accepts an imported turboprop payload converted from sample JSON", async () => {
   _session = { user: { name: "Alice" }, ownerId: "owner-uuid" };
+  _saveProfileCreated = true;
 
   const imported = makeImportedProfile();
   imported.id = VALID_UUID;
@@ -295,7 +332,7 @@ test("POST /api/profiles/[id] accepts an imported turboprop payload converted fr
 
   const response = await route!.POST(makePostRequest(VALID_UUID, imported), makeParams(VALID_UUID));
 
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 201);
   assert.equal(mockSaveProfile.mock.calls.length, 1);
   assert.deepEqual(mockSaveProfile.mock.calls[0].arguments, [VALID_UUID, imported, "owner-uuid", "Alice"]);
 });
@@ -316,12 +353,11 @@ test("AC-PROFILE-06: POST /api/profiles/[id] by non-owner returns 403", async ()
 // AC-PROFILE-11: Delete profile — owner can delete
 // ---------------------------------------------------------------------------
 
-test("AC-PROFILE-11: DELETE /api/profiles/[id] by owner returns 200 { success: true }", async () => {
+test("AC-PROFILE-11: DELETE /api/profiles/[id] by owner returns 204", async () => {
   _session = { user: { name: "Alice" }, ownerId: "owner-uuid" };
   const response = await route!.DELETE(makeDeleteRequest(VALID_UUID), makeParams(VALID_UUID));
-  assert.equal(response.status, 200);
-  const body = await response.json() as { success: boolean };
-  assert.equal(body.success, true);
+  assert.equal(response.status, 204);
+  assert.equal(await response.text(), "");
   assert.equal(mockDeleteProfileById.mock.calls.length, 1);
 });
 
@@ -357,4 +393,12 @@ test("DELETE /api/profiles/[id] without session returns 401", async () => {
   assert.equal(response.status, 401);
   const body = await response.json() as { error: string };
   assert.equal(body.error, "Unauthorized");
+});
+
+test("DELETE /api/profiles/[id] with missing ownerId returns 401", async () => {
+  _session = { user: { name: "Alice" }, ownerId: "" };
+
+  const response = await route!.DELETE(makeDeleteRequest(VALID_UUID), makeParams(VALID_UUID));
+
+  assert.equal(response.status, 401);
 });
