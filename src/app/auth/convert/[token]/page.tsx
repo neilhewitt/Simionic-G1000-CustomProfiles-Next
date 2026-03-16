@@ -83,9 +83,9 @@ export default function ConvertCompletePage() {
         <div className="container px-5 py-5">
           <div className="row justify-content-center">
             <div className="col-md-6 col-lg-5">
-              <div className="card bg-secondary text-white p-4 text-center">
+              <div className="card bg-white text-black p-4 text-center">
                 <h3 className="mb-3">Invalid or expired link</h3>
-                <p className="text-light mb-4">
+                <p className="mb-4">
                   This conversion link is invalid or has expired. Please request a new one.
                 </p>
                 <Link href="/auth/convert" className="btn btn-primary btn-lg w-100">
@@ -105,9 +105,9 @@ export default function ConvertCompletePage() {
         <div className="container px-5 py-5">
           <div className="row justify-content-center">
             <div className="col-md-6 col-lg-5">
-              <div className="card bg-secondary text-white p-4 text-center">
+              <div className="card bg-white text-black p-4 text-center">
                 <h3 className="mb-3">Conversion complete</h3>
-                <p className="text-light mb-4">
+                <p className="mb-4">
                   Your account has been converted and all your profiles have been migrated.
                   You can now sign in with your email and password.
                 </p>
@@ -127,9 +127,9 @@ export default function ConvertCompletePage() {
       <div className="container px-5 py-5">
         <div className="row justify-content-center">
           <div className="col-md-6 col-lg-5">
-            <div className="card bg-secondary text-white p-4">
+            <div className="card bg-white text-black p-4">
               <h3 className="mb-3 text-center">Complete account conversion</h3>
-              <p className="text-light mb-3">
+              <p className="mb-3">
                 Enter the email address you used with your Microsoft account, choose a display name,
                 and set a password for your new local account. All your existing profiles will be
                 migrated automatically.
@@ -176,7 +176,7 @@ export default function ConvertCompletePage() {
                     required
                     minLength={8}
                   />
-                  <div className="form-text text-light">At least 8 characters.</div>
+                  <div className="form-text text-muted">At least 8 characters.</div>
                 </div>
                 <div className="mb-3">
                   <label htmlFor="confirmPassword" className="form-label">Confirm password</label>
@@ -199,7 +199,7 @@ export default function ConvertCompletePage() {
               </form>
 
               <div className="mt-4 text-center">
-                <Link href="/auth/signin" className="text-light">Back to sign in</Link>
+                <Link href="/auth/signin" className="text-dark">Back to sign in</Link>
               </div>
             </div>
           </div>

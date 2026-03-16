@@ -8,6 +8,10 @@ const COLLECTION = "profiles";
 
 let profileIndexesEnsured = false;
 
+function getOwnerIdConditions(ownerId: string): Record<string, string>[] {
+  return [{ "Owner.Id": ownerId }, { "Owner.id": ownerId }];
+}
+
 async function ensureProfileIndexes() {
   if (profileIndexesEnsured) return;
   const db = await getDb();
@@ -54,9 +58,10 @@ export async function getAllProfiles(params: ProfilesQueryParams = {}): Promise<
 
   if (params.owner) {
     if (params.drafts) {
-      andConditions.push({ IsPublished: false, "Owner.Id": params.owner });
+      andConditions.push({ IsPublished: false });
+      andConditions.push({ $or: getOwnerIdConditions(params.owner) });
     } else {
-      andConditions.push({ $or: [{ IsPublished: true }, { "Owner.Id": params.owner }] });
+      andConditions.push({ $or: [{ IsPublished: true }, ...getOwnerIdConditions(params.owner)] });
     }
   } else {
     andConditions.push({ IsPublished: true });
@@ -157,8 +162,11 @@ export async function updateProfileOwner(
 ): Promise<number> {
   const db = await getDb();
   const result = await db.collection(COLLECTION).updateMany(
-    { "Owner.Id": oldOwnerId },
-    { $set: { "Owner.Id": newOwnerId, "Owner.Name": newOwnerName } },
+    { $or: getOwnerIdConditions(oldOwnerId) },
+    {
+      $set: { "Owner.Id": newOwnerId, "Owner.Name": newOwnerName },
+      $unset: { "Owner.id": "" },
+    },
     { session }
   );
   return result.modifiedCount;

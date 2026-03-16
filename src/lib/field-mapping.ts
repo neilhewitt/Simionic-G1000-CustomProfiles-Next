@@ -4,7 +4,8 @@
  *
  * Only profile-level and gauge-level field names are mapped.
  * VSpeeds internal keys (Vs0, Vs1, …) are aviation abbreviations and stay as-is.
- * The top-level `id` field is already lowercase and stays as-is.
+ * The top-level `id` field is already lowercase and stays as-is, but Owner.Id
+ * preserves the legacy PascalCase used by existing profile documents.
  * Enum *values* are unchanged — only object *keys* are transformed.
  */
 
@@ -97,15 +98,24 @@ for (const [camel, pascal] of Object.entries(camelToPascal)) {
 function transformKeys(
   obj: unknown,
   map: Record<string, string>,
+  path: string[] = [],
 ): unknown {
   if (obj === null || obj === undefined) return obj;
-  if (Array.isArray(obj)) return obj.map((item) => transformKeys(item, map));
+  if (Array.isArray(obj)) return obj.map((item) => transformKeys(item, map, path));
   if (typeof obj !== "object") return obj;
 
   const result: Record<string, unknown> = {};
+  const parentKey = path.at(-1);
+
   for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-    const newKey = map[key] ?? key;
-    result[newKey] = transformKeys(value, map);
+    const newKey =
+      parentKey === "owner" && key === "id"
+        ? "Id"
+        : parentKey === "Owner" && key === "Id"
+          ? "id"
+          : map[key] ?? key;
+
+    result[newKey] = transformKeys(value, map, [...path, key]);
   }
   return result;
 }

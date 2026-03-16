@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface FAQEntry {
   question: string;
@@ -49,7 +49,14 @@ const faqEntries: FAQEntry[] = [
     question: "How do I use these profiles with my Simionic apps?",
     answer: [
       "To use the profiles stored here with your apps, you need to first make sure you're on the latest version of the app. Some older iPads cannot run the latest versions and may not be able to use custom profile data. Once you have this, touch the spot at the top-right of the PFD / MFD screen to access the settings. You should see a tab marked 'Aircraft' - select this. At the top should be an option 'Customisation'. Enabling this requires an in-app purchase.",
-      "Once you have paid for the feature and it's available, you can touch 'Customisation' and this will open a dialog box where you can choose the settings for your custom aircraft profile. The profile page on this site is layed out similarly to the custom profile dialog in the app. You can transpose the options and data from the profile screen here into the dialog in your app. You can also import profiles using the Custom Profile Manager tool.",
+      "Once you have paid for the feature and it's available, you can touch 'Customisation' and this will open a dialog box where you can choose the settings for your custom aircraft profile. The profile page on this site is layed out similarly to the custom profile dialog in the app. You can transpose the options and data from the profile screen here into the dialog in your app, or you can import profiles using the Custom Profile Manager tool.",
+    ],
+    },
+  {
+    question: "What is the Custom Profile Manager tool?",
+    answer: [
+        "The Profile Manager tool is a Windows desktop app that allows you to export profiles from your iPad to share here, or import profiles that you have downloaded from this site.",
+        'You can download the latest version of the tool <a href="/downloads">here</a>'
     ],
   },
   {
@@ -57,8 +64,16 @@ const faqEntries: FAQEntry[] = [
     answer: [
       "No, not to search and use profiles.",
       'However, if you want to <a href="/create">create a profile</a>, or edit a profile you have created previously, then you do need to log in. You can register for a free account using your email address and a password of your choice. Click the \'Log In\' link in the navigation bar to sign in or register a new account.',
-    ],
-  },
+      'Note that we do not support Multi Factor Authentication (MFA) currently. Please use a unique password for this site and do not reuse a password that you use for other accounts. A password manager can help you maintain unique passwords for all the sites you use.',
+      ],
+    },
+    {
+        question: "Why can't you use a Microsoft account to log in now?",
+        answer: [
+            "The site used to require users who wanted to create profiles to use a personal Microsoft account to log in. We no longer do this.",
+            'The running of the site was handed over to a new team. We decided to de-couple the site from 3rd-party authentication, and implemented a secure local user account system. If you used to log in with a Microsoft account and you created profiles under this identity, you will need to <a href="/auth/convert">convert your account</a> to a local one to retain ownership of your profiles.'
+        ],
+    },
   {
     question: "How do I share a profile with the community?",
     answer: [
@@ -66,20 +81,20 @@ const faqEntries: FAQEntry[] = [
       'The simplest is to install the <a href="/downloads">Simionic Custom Profile Manager</a> desktop app and use this to export your profile to a JSON file, which you can then <a href="/import">import</a> into the site. The profile will be immediately saved to the database as a draft that you can publish when you\'re ready.',
       'Alternatively, you can <a href="/create">create</a> a new empty profile. Give your profile a name (you can change this later), and click the \'create\' button.',
       "This will open the profile editing screen. Fill out the details, and when you're ready, you can click 'save draft' at the bottom of the form. This will save your work to the database, but in a draft (unpublished) state so that only you can see it. When you're happy with your new profile, you can set the status to 'published' using the button at the top of the form, and then save again. This will publish your profile for everyone to see.",
-      "If you want to edit a profile you created, once logged in, you will see 'edit' buttons on every profile you have contributed on the browse profiles screen. You can filter the view to show just your profiles, or just your profiles in draft. Click 'edit' to open the edit view, make your changes, and hit 'save' again to save changes. Once saved, previous changes are lost. You can also un-publish a published profile, but for the sake of the community we would ask that you don't do that without a good reason.",
+      "If you want to edit a profile you created, once logged in, you will see 'edit' buttons on every profile you have contributed on the browse profiles screen. You can filter the view to show just your profiles, or just your profiles in draft. Click 'edit' to open the edit view, make your changes, and hit 'save' again to save changes. Once saved, previous changes are lost. You can also un-publish or permanently delete a published profile, but for the sake of the community we would ask that you don't do that without a good reason.",
     ],
   },
   {
     question: "Does the site store my personal data, such as passwords?",
     answer: [
-      "The site stores the minimum data necessary to operate your account: your display name, your email address, and a secure hash of your password. Your plaintext password is never stored — only a one-way Argon2 hash is retained, which cannot be reversed to recover your original password.",
+      "The site stores the minimum data necessary to operate your account: your display name, your email address, and a secure hash of your password. Your plaintext password is never stored.",
       "Your display name is stored on any profiles that you create and is visible to other users. Your email address is used only for account management (login, password reset) and is never shared with third parties.",
     ],
   },
   {
     question: "How do I contact the site administrator?",
     answer: [
-      'If you need to contact us, please use the email on our <a href="/contact">Contact Us</a> page. We will try to reply as quickly as possible, but remember that this site is run by volunteers purely as a hobby project.',
+      'If you need to contact us, please use the email on our <a href="/contact">contact us</a> page. We will try to reply as quickly as possible, but remember that this site is run by volunteers purely as a hobby project.',
     ],
   },
   {
@@ -93,8 +108,15 @@ const faqEntries: FAQEntry[] = [
 function FAQItem({ entry, index }: { entry: FAQEntry; index: number }) {
   const [isOpen, setIsOpen] = useState(false);
 
+  useEffect(() => {
+    if (window.location.hash === `#faq${index}`) {
+      setIsOpen(true);
+    }
+  }, [index]);
+
   return (
-    <>
+      <>
+      <div className="mb-4" id={`faq${index}`}>
       <h5 className="text-white mt-2">
         <a
           className="text-decoration-none text-white"
@@ -109,13 +131,14 @@ function FAQItem({ entry, index }: { entry: FAQEntry; index: number }) {
           {entry.question}
         </a>
       </h5>
-      {isOpen && (
+      <div className={`faq-answer${isOpen ? " faq-answer-open" : ""}`}>
         <div>
           {entry.answer.map((para, i) => (
             <FAQParagraph key={i} text={para} />
           ))}
         </div>
-      )}
+      </div>
+      </div>
     </>
   );
 }

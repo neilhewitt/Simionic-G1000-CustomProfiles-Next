@@ -16,10 +16,11 @@ export class FakeEmailService implements EmailService {
       const dir = path.join(tmpdir(), "simionic-emails");
       await mkdir(dir, { recursive: true });
       const safeTo = sanitize(to) || "recipient";
-      const filename = `${Date.now()}-${safeTo.replace(/[^a-zA-Z0-9]/g, "_")}.txt`;
-      await writeFile(path.join(dir, filename), text, "utf-8");
+      const filename = path.join(dir,`${Date.now()}-${safeTo.replace(/[^a-zA-Z0-9]/g, "_")}.txt`);
+      await writeFile(filename, text, "utf-8");
+      console.log(`Fake email written to: ${filename}`);
     } catch (err) {
-      console.error("Failed to write fake email to disk:", err);
+      console.error(`Failed to write fake email to disk:`, err);
     }
   }
 }

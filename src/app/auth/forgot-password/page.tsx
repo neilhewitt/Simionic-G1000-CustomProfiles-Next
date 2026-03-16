@@ -28,9 +28,9 @@ export default function ForgotPasswordPage() {
         <div className="container px-5 py-5">
           <div className="row justify-content-center">
             <div className="col-md-6 col-lg-4">
-              <div className="card bg-secondary text-white p-4 text-center">
+              <div className="card bg-white text-black p-4 text-center">
                 <h3 className="mb-3">Check your email</h3>
-                <p className="text-light mb-4">
+                <p className="mb-4">
                   If an account exists with that email address, a password reset link has been sent.
                   The link will expire in 15 minutes.
                 </p>
@@ -50,9 +50,9 @@ export default function ForgotPasswordPage() {
       <div className="container px-5 py-5">
         <div className="row justify-content-center">
           <div className="col-md-6 col-lg-4">
-            <div className="card bg-secondary text-white p-4">
+            <div className="card bg-white text-black p-4">
               <h3 className="mb-3 text-center">Forgot password</h3>
-              <p className="text-light mb-3">
+              <p className="mb-3">
                 Enter your email address and we&apos;ll send you a link to reset your password.
               </p>
 
@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
               </form>
 
               <div className="mt-4 text-center">
-                <Link href="/auth/signin" className="text-light">Back to sign in</Link>
+                <Link href="/auth/signin" className="text-dark">Back to sign in</Link>
               </div>
             </div>
           </div>

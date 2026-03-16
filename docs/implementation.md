@@ -151,7 +151,8 @@ Stored in the `profiles` collection. Fields use PascalCase to match the Simionic
   Notes:        string | null
 
   // --- Piston-only ---
-  Cylinders:    4 | 6
+  // Non-piston imports may use 0 because cylinders are not applicable.
+  Cylinders:    0 | 4 | 6
   Fadec:        boolean
   Turbocharged: boolean
   ConstantSpeed: boolean
@@ -725,7 +726,7 @@ Key validation rules:
 | `aircraftType`       | literal 0, 1, or 2                                |
 | `engines`            | literal 1 or 2                                    |
 | `notes`              | nullable, max 2000 chars                           |
-| `cylinders`          | literal 4 or 6                                    |
+| `cylinders`          | literal 0, 4, or 6; piston profiles may not use 0 |
 | `gauge.ranges`       | array of exactly 4 entries                         |
 | `gauge.name`         | max 200 chars                                      |
 | `gauge.ranges[].colour` | integer 0-3                                     |

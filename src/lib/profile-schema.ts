@@ -65,7 +65,8 @@ export const profileSchema = z.object({
   notes: z.string().max(2000, "Notes must be 2000 characters or fewer.").nullable(),
 
   // Piston only
-  cylinders: z.union([z.literal(4), z.literal(6)]),
+  // Imported turboprop/jet profiles use 0 here because cylinders are not applicable.
+  cylinders: z.union([z.literal(0), z.literal(4), z.literal(6)]),
   fadec: z.boolean(),
   turbocharged: z.boolean(),
   constantSpeed: z.boolean(),
@@ -98,6 +99,14 @@ export const profileSchema = z.object({
   displayFlapsIndicator: z.boolean(),
   flapsRange: flapsRangeSchema,
   vSpeeds: vspeedsSchema,
-}).strip();
+}).strip().superRefine((profile, ctx) => {
+  if (profile.aircraftType === 0 && profile.cylinders === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["cylinders"],
+      message: "Piston profiles must have 4 or 6 cylinders.",
+    });
+  }
+});
 
 export type ValidatedProfile = z.infer<typeof profileSchema>;

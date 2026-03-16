@@ -58,9 +58,9 @@ function ResetPasswordContent() {
         <div className="container px-5 py-5">
           <div className="row justify-content-center">
             <div className="col-md-6 col-lg-4">
-              <div className="card bg-secondary text-white p-4 text-center">
+              <div className="card bg-white text-black p-4 text-center">
                 <h3 className="mb-3">Password reset</h3>
-                <p className="text-light mb-4">
+                <p className="mb-4">
                   Your password has been reset successfully.
                 </p>
                 <Link href="/auth/signin?passwordReset=true" className="btn btn-primary btn-lg w-100">
@@ -79,9 +79,9 @@ function ResetPasswordContent() {
       <div className="container px-5 py-5">
         <div className="row justify-content-center">
           <div className="col-md-6 col-lg-4">
-            <div className="card bg-secondary text-white p-4">
+            <div className="card bg-white text-black p-4">
               <h3 className="mb-3 text-center">Reset password</h3>
-              <p className="text-light mb-3">
+              <p className="mb-3">
                 Choose a new password for your account.
               </p>
 
@@ -121,7 +121,7 @@ function ResetPasswordContent() {
                     required
                     minLength={8}
                   />
-                  <div className="form-text text-light">At least 8 characters.</div>
+                  <div className="form-text text-muted">At least 8 characters.</div>
                 </div>
                 <div className="mb-3">
                   <label htmlFor="confirmPassword" className="form-label">Confirm new password</label>
@@ -145,7 +145,7 @@ function ResetPasswordContent() {
               </form>
 
               <div className="mt-4 text-center">
-                <Link href="/auth/signin" className="text-light">Back to sign in</Link>
+                <Link href="/auth/signin" className="text-dark">Back to sign in</Link>
               </div>
             </div>
           </div>

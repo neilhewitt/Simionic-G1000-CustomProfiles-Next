@@ -32,6 +32,22 @@ test("toPascalCase converts nested gauge keys", () => {
   assert.equal(ranges[0]["AllowDecimals"], true);
 });
 
+test("toPascalCase converts owner.id to Owner.Id without changing top-level id", () => {
+  const input = {
+    id: "profile-123",
+    owner: { id: "owner-456", name: "Alice" },
+  };
+
+  const result = toPascalCase<Record<string, unknown>>(input);
+  const owner = result["Owner"] as Record<string, unknown>;
+
+  assert.equal(result["id"], "profile-123");
+  assert.equal(result["Id"], undefined);
+  assert.equal(owner["Id"], "owner-456");
+  assert.equal(owner["Name"], "Alice");
+  assert.equal(owner["id"], undefined);
+});
+
 test("toPascalCase handles null values without throwing", () => {
   const input = { notes: null };
   const result = toPascalCase<Record<string, unknown>>(input);
@@ -72,6 +88,21 @@ test("toCamelCase converts nested gauge keys", () => {
   const ranges = ff["ranges"] as Record<string, unknown>[];
   assert.equal(ranges[0]["colour"], 1);
   assert.equal(ranges[0]["allowDecimals"], false);
+});
+
+test("toCamelCase converts Owner.Id to owner.id without changing top-level id", () => {
+  const input = {
+    id: "profile-123",
+    Owner: { Id: "owner-456", Name: "Alice" },
+  };
+
+  const result = toCamelCase<Record<string, unknown>>(input);
+  const owner = result["owner"] as Record<string, unknown>;
+
+  assert.equal(result["id"], "profile-123");
+  assert.equal(owner["id"], "owner-456");
+  assert.equal(owner["name"], "Alice");
+  assert.equal(owner["Id"], undefined);
 });
 
 test("toCamelCase handles null values without throwing", () => {

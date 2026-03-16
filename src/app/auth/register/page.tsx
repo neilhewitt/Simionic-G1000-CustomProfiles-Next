@@ -67,7 +67,7 @@ export default function RegisterPage() {
       <div className="container px-5 py-5">
         <div className="row justify-content-center">
           <div className="col-md-6 col-lg-4">
-            <div className="card bg-secondary text-white p-4">
+            <div className="card bg-white text-black p-4">
               <h3 className="mb-3 text-center">Create an account</h3>
 
               {error && (
@@ -110,7 +110,7 @@ export default function RegisterPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
-                  <div className="form-text text-light">At least 8 characters.</div>
+                  <div className="form-text text-muted">At least 8 characters.</div>
                 </div>
                 <div className="mb-3">
                   <label htmlFor="confirmPassword" className="form-label">Confirm password</label>
@@ -135,7 +135,7 @@ export default function RegisterPage() {
               <div className="mt-4 text-center">
                 <p className="mb-0">
                   Already have an account?{" "}
-                  <Link href="/auth/signin" className="text-light">Sign in</Link>
+                  <Link href="/auth/signin" className="text-dark">Sign in</Link>
                 </p>
               </div>
             </div>

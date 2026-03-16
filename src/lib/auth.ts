@@ -11,6 +11,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: "jwt",
   },
+  cookies: {
+    sessionToken: {
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        // No maxAge = session cookie, cleared when the browser closes
+      },
+    },
+  },
   providers: [
     Credentials({
       name: "credentials",
@@ -39,7 +50,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        // user.id is the ownerId returned from authorize()
         token.ownerId = user.id;
       }
       return token;

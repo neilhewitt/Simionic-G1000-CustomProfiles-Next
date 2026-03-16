@@ -14,9 +14,6 @@ export default function DownloadsPage() {
                 directly with other users, and <b>import</b> custom profiles downloaded from this site or obtained directly from other users.
               </p>
               <p className="text-white mb-4">
-                <a href="https://youtu.be/4l4XcuoF0vo" target="_blank" rel="noopener noreferrer"><b>Watch the introductory video</b></a>
-              </p>
-              <p className="text-white mb-4">
                 <b>Please note:</b> use of this tool is entirely at your own risk. Please ensure that you
                 follow the instructions given in the introductory video to <b>backup your profile database</b> <i>before</i> using this tool.
               </p>

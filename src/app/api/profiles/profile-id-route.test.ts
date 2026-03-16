@@ -15,10 +15,13 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { mock, before, beforeEach } from "node:test";
 import { NextRequest } from "next/server";
 import { AircraftType, RangeColour } from "@/types";
 import type { Profile } from "@/types";
+import { toCamelCase } from "@/lib/field-mapping";
 import type * as RouteModule from "./[id]/route";
 
 // ---------------------------------------------------------------------------
@@ -163,6 +166,14 @@ function makeSavedProfile(overrides: Partial<Profile> = {}): Profile {
   return { ...base, ...overrides };
 }
 
+function makeImportedProfile(): Profile {
+  const raw = readFileSync(
+    path.join(process.cwd(), "src", "samples", "2b73437f-aed3-4fa1-b1cc-0e21323775b0.json"),
+    "utf8"
+  );
+  return toCamelCase<Profile>(JSON.parse(raw));
+}
+
 function makeGetRequest(id: string): NextRequest {
   return new NextRequest(`${ORIGIN}/api/profiles/${id}`);
 }
@@ -272,6 +283,21 @@ test("AC-PROFILE-05: POST /api/profiles/[id] by owner succeeds on update", async
   const response = await route!.POST(makePostRequest(VALID_UUID, updated), makeParams(VALID_UUID));
   assert.equal(response.status, 200);
   assert.equal(mockSaveProfile.mock.calls.length, 1);
+});
+
+test("POST /api/profiles/[id] accepts an imported turboprop payload converted from sample JSON", async () => {
+  _session = { user: { name: "Alice" }, ownerId: "owner-uuid" };
+
+  const imported = makeImportedProfile();
+  imported.id = VALID_UUID;
+  imported.owner = { id: "owner-uuid", name: "Alice" };
+  imported.isPublished = false;
+
+  const response = await route!.POST(makePostRequest(VALID_UUID, imported), makeParams(VALID_UUID));
+
+  assert.equal(response.status, 200);
+  assert.equal(mockSaveProfile.mock.calls.length, 1);
+  assert.deepEqual(mockSaveProfile.mock.calls[0].arguments, [VALID_UUID, imported, "owner-uuid", "Alice"]);
 });
 
 // ---------------------------------------------------------------------------

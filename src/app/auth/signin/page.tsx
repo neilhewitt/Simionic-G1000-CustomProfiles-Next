@@ -21,6 +21,8 @@ function SignInContent() {
     setError(null);
     setLoading(true);
 
+    const unableToSignInMessage = "Unable to sign in right now. Please try again.";
+
     try {
       const result = await signIn("credentials", {
         email,
@@ -34,10 +36,10 @@ function SignInContent() {
       } else if (result?.url) {
         window.location.href = result.url;
       } else {
-        setError("Unable to sign in right now. Please try again.");
+        setError(unableToSignInMessage);
       }
     } catch {
-      setError("Unable to sign in right now. Please try again.");
+      setError(unableToSignInMessage);
     } finally {
       setLoading(false);
     }
@@ -48,7 +50,7 @@ function SignInContent() {
       <div className="container px-5 py-5">
         <div className="row justify-content-center">
           <div className="col-md-6 col-lg-4">
-            <div className="card bg-secondary text-white p-4">
+            <div className="card bg-white text-black p-4">
               <h3 className="mb-3 text-center">Sign in</h3>
 
               {registered && (
@@ -102,15 +104,18 @@ function SignInContent() {
                 </button>
               </form>
 
-              <div className="mt-4 text-center">
+              <div className="mt-3 text-center">
                 <p className="mb-1">
-                  <Link href="/auth/register" className="text-light">Create an account</Link>
+                  <Link href="/auth/register" className="text-dark">Create an account</Link>
                 </p>
-                <p className="mb-1">
-                  <Link href="/auth/forgot-password" className="text-light">Forgot password?</Link>
+                <p className="mb-3">
+                  <Link href="/auth/forgot-password" className="text-dark">Forgot password?</Link>
                 </p>
-                <p className="mb-0">
-                  <Link href="/auth/convert" className="text-light">Used to sign in with Microsoft?</Link>
+                <p className="mb-3">
+                  If you previously used a <b>Microsoft account</b>,<br /><Link href="/auth/convert" className="text-dark">click here</Link> to convert to a site login.
+                </p>
+                <p className="mb-0 small text-muted"> 
+                  Find out more about the move away from Microsoft accounts <Link className="text-dark" href="/faq#faq4">here</Link>.
                 </p>
               </div>
             </div>

@@ -98,6 +98,18 @@ npm run migrate
 
 This reads every `.json` file in `data/`, upserts each profile into the `simionic.profiles` MongoDB collection, and creates a unique index on the `id` field.
 
+If you need to repair profiles written with `Owner.id` instead of `Owner.Id`, run:
+
+```bash
+npm run migrate:owner-id-casing
+```
+
+To preview affected documents without writing changes:
+
+```bash
+npm run migrate:owner-id-casing -- --dry-run
+```
+
 You can verify the import by checking the document count:
 
 ```bash
@@ -173,6 +185,7 @@ npm test
 | `start` | `npm run start` | Start the production server |
 | `lint` | `npm run lint` | Run ESLint |
 | `migrate` | `npm run migrate` | Import `.json` files from `data/` into MongoDB |
+| `migrate:owner-id-casing` | `npm run migrate:owner-id-casing` | Rewrite legacy `Owner.id` fields to `Owner.Id` |
 | `test:install` | `npm run test:install` | Install test dependencies (Playwright + Chromium browser binary) |
 | `test:unit` | `npm run test:unit` | Run unit tests for library functions |
 | `test:integration` | `npm run test:integration` | Run API route and middleware integration tests (no database required) |

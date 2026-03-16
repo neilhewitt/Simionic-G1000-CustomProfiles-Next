@@ -12,7 +12,7 @@ export default function AboutPage() {
               <h2 className="fw-bolder text-white mb-2">About this site</h2>
               <p className="text-white">
                 This site is a place to find and share custom profiles for the{" "}
-                <a href="https://www.simionic.net/wordpress/g1000-apps/">Simionic G1000 apps</a>. These apps are simulations of the Garmin G1000 Primary Flight Display and Multi-Function Display avionics units
+                <a href="https://www.simionic.net/wordpress/g1000-apps/">Simionic G1000 apps</a> (including the latest NXi app). These apps are simulations of the Garmin G1000 Primary Flight Display and Multi-Function Display avionics units
                 which run on iPads and can be connected to flight simulation software including Microsoft Flight Simulator, X-Plane and Prepar3d.
               </p>
               <p className="text-white">

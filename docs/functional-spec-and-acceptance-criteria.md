@@ -82,8 +82,9 @@ Profile {
   isPublished:               boolean
   notes:                     string|null     // 0–2000 chars
 
-  // Piston-only (present on all profiles but only used for Piston)
-  cylinders:                 4|6
+  // Piston-only (present on all profiles but only used for Piston;
+  // imported non-piston profiles may carry 0 here)
+  cylinders:                 0|4|6
   fadec:                     boolean
   turbocharged:              boolean
   constantSpeed:             boolean

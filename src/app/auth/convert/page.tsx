@@ -28,10 +28,10 @@ export default function ConvertPage() {
         <div className="container px-5 py-5">
           <div className="row justify-content-center">
             <div className="col-md-6 col-lg-5">
-              <div className="card bg-secondary text-white p-4 text-center">
+              <div className="card bg-white text-black p-4 text-center">
                 <h3 className="mb-3">Check your email</h3>
-                <p className="text-light mb-4">
-                  If eligible, a conversion email has been sent to the address provided.
+                <p className="mb-4">
+                  If applicable, a conversion email has been sent to the address provided.
                   The link in the email will expire in 24 hours.
                 </p>
                 <Link href="/auth/signin" className="btn btn-primary btn-lg w-100">
@@ -50,14 +50,13 @@ export default function ConvertPage() {
       <div className="container px-5 py-5">
         <div className="row justify-content-center">
           <div className="col-md-6 col-lg-5">
-            <div className="card bg-secondary text-white p-4">
+            <div className="card bg-white text-black p-4">
               <h3 className="mb-3 text-center">Microsoft account conversion</h3>
-              <p className="text-light mb-3">
-                If you previously signed in with a Microsoft account, you can convert your account
+              <p className="mb-4">
+                If you previously signed in with a Microsoft account and created profiles under this identity, you must convert your account
                 to use a local email and password. Enter the email address associated with your
                 Microsoft account below and we&apos;ll send you a link to complete the conversion.
               </p>
-
               <form onSubmit={handleSubmit}>
                 <div className="mb-3">
                   <label htmlFor="email" className="form-label">Microsoft account email</label>
@@ -81,7 +80,10 @@ export default function ConvertPage() {
               </form>
 
               <div className="mt-4 text-center">
-                <Link href="/auth/signin" className="text-light">Back to sign in</Link>
+                <p className="mb-3"><Link href="/auth/signin" className="text-dark">Back to sign in</Link></p>
+                <p className="mb-0 small text-muted">
+                  Find out more about the move away from Microsoft accounts <Link className="text-dark" href="/faq#faq4">here</Link>.
+                </p>
               </div>
             </div>
           </div>
